@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import org.springframework.aot.hint.RuntimeHints;
+import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.boot.actuate.endpoint.InvalidEndpointRequestException;
 import org.springframework.boot.actuate.endpoint.InvocationContext;
 import org.springframework.boot.actuate.endpoint.OperationArgumentResolver;
@@ -43,7 +47,9 @@ import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
 import org.springframework.boot.actuate.endpoint.web.WebOperation;
 import org.springframework.boot.actuate.endpoint.web.WebOperationRequestPredicate;
 import org.springframework.boot.actuate.endpoint.web.WebServerNamespace;
+import org.springframework.boot.actuate.endpoint.web.reactive.AbstractWebFluxEndpointHandlerMapping.AbstractWebFluxEndpointHandlerMappingRuntimeHints;
 import org.springframework.boot.web.context.WebServerApplicationContext;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -79,6 +85,7 @@ import org.springframework.web.util.pattern.PathPattern;
  * @author Brian Clozel
  * @since 2.0.0
  */
+@ImportRuntimeHints(AbstractWebFluxEndpointHandlerMappingRuntimeHints.class)
 public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappingInfoHandlerMapping {
 
 	private final EndpointMapping endpointMapping;
@@ -179,8 +186,9 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 
 	private void registerLinksMapping() {
 		String path = this.endpointMapping.getPath();
+		String linksPath = StringUtils.hasLength(path) ? path : "/";
 		String[] produces = StringUtils.toStringArray(this.endpointMediaTypes.getProduced());
-		RequestMappingInfo mapping = RequestMappingInfo.paths(path).methods(RequestMethod.GET).produces(produces)
+		RequestMappingInfo mapping = RequestMappingInfo.paths(linksPath).methods(RequestMethod.GET).produces(produces)
 				.build();
 		LinksHandler linksHandler = getLinksHandler();
 		registerMapping(mapping, linksHandler,
@@ -362,6 +370,9 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 		}
 
 		private Mono<ResponseEntity<Object>> handleResult(Publisher<?> result, HttpMethod httpMethod) {
+			if (result instanceof Flux) {
+				result = ((Flux<?>) result).collectList();
+			}
 			return Mono.from(result).map(this::toResponseEntity)
 					.onErrorMap(InvalidEndpointRequestException.class,
 							(ex) -> new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getReason()))
@@ -404,6 +415,11 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 			return this.operation.handle(exchange, body);
 		}
 
+		@Override
+		public String toString() {
+			return this.operation.toString();
+		}
+
 	}
 
 	/**
@@ -420,6 +436,11 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 		@ResponseBody
 		Publisher<ResponseEntity<Object>> handle(ServerWebExchange exchange) {
 			return this.operation.handle(exchange, null);
+		}
+
+		@Override
+		public String toString() {
+			return this.operation.toString();
 		}
 
 	}
@@ -465,6 +486,19 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 			}
 			return this.roleVoter.vote(this.authentication, null,
 					Collections.singletonList(new SecurityConfig(role))) == AccessDecisionVoter.ACCESS_GRANTED;
+		}
+
+	}
+
+	static class AbstractWebFluxEndpointHandlerMappingRuntimeHints implements RuntimeHintsRegistrar {
+
+		@Override
+		public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
+			hints.reflection()
+					.registerMethod(Objects.requireNonNull(ReflectionUtils.findMethod(WriteOperationHandler.class,
+							"handle", ServerWebExchange.class, Map.class)))
+					.registerMethod(Objects.requireNonNull(
+							ReflectionUtils.findMethod(ReadOperationHandler.class, "handle", ServerWebExchange.class)));
 		}
 
 	}

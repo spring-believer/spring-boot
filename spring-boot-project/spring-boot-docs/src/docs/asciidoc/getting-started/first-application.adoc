@@ -62,7 +62,7 @@ Open your favorite text editor and add the following:
 		<!-- Additional lines to be added here... -->
 
 ifeval::["{spring-boot-artifactory-repo}" != "release"]
-		<!-- (you don't need this if you are using a .RELEASE version) -->
+		<!-- (you do not need this if you are using a .RELEASE version) -->
 		<repositories>
 			<repository>
 				<id>spring-snapshots</id>
@@ -137,10 +137,7 @@ If you run `mvn dependency:tree` again, you see that there are now a number of a
 To finish our application, we need to create a single Java file.
 By default, Maven compiles sources from `src/main/java`, so you need to create that directory structure and then add a file named `src/main/java/MyApplication.java` to contain the following code:
 
-[source,java,indent=0,subs="verbatim"]
-----
-include::{docs-java}/gettingstarted/firstapplication/code/MyApplication.java[]
-----
+include::code:MyApplication[]
 
 Although there is not much code here, quite a lot is going on.
 We step through the important parts in the next few sections.
@@ -210,7 +207,7 @@ You should see output similar to the following:
 	....... . . .
 	....... . . . (log output here)
 	....... . . .
-	........ Started MyApplication in 2.222 seconds (JVM running for 6.514)
+	........ Started MyApplication in 2.222 seconds (process running for 6.514)
 ----
 
 If you open a web browser to `http://localhost:8080`, you should see the following output:
@@ -239,7 +236,7 @@ An uber jar packages all the classes from all the application's dependencies int
 The problem with this approach is that it becomes hard to see which libraries are in your application.
 It can also be problematic if the same filename is used (but with different content) in multiple jars.
 
-Spring Boot takes a <<executable-jar#executable-jar, different approach>> and lets you actually nest jars directly.
+Spring Boot takes a <<executable-jar#appendix.executable-jar, different approach>> and lets you actually nest jars directly.
 ****
 
 To create an executable jar, we need to add the `spring-boot-maven-plugin` to our `pom.xml`.
@@ -310,7 +307,7 @@ To run that application, use the `java -jar` command, as follows:
 	....... . . .
 	....... . . . (log output here)
 	....... . . .
-	........ Started MyApplication in 2.536 seconds (JVM running for 2.864)
+	........ Started MyApplication in 2.536 seconds (process running for 2.864)
 ----
 
 As before, to exit the application, press `ctrl-c`.

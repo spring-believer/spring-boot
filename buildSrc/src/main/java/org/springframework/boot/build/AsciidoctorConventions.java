@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,9 +106,9 @@ class AsciidoctorConventions {
 	private void createAsciidoctorExtensionsConfiguration(Project project) {
 		project.getConfigurations().create(EXTENSIONS_CONFIGURATION_NAME, (configuration) -> {
 			project.getConfigurations().matching((candidate) -> "dependencyManagement".equals(candidate.getName()))
-					.all((dependencyManagement) -> configuration.extendsFrom(dependencyManagement));
+					.all(configuration::extendsFrom);
 			configuration.getDependencies().add(project.getDependencies()
-					.create("io.spring.asciidoctor.backends:spring-asciidoctor-backends:0.0.2"));
+					.create("io.spring.asciidoctor.backends:spring-asciidoctor-backends:0.0.3"));
 			configuration.getDependencies()
 					.add(project.getDependencies().create("org.asciidoctor:asciidoctorj-pdf:1.5.3"));
 		});
@@ -120,10 +120,10 @@ class AsciidoctorConventions {
 		configureOptions(asciidoctorTask);
 		asciidoctorTask.baseDirFollowsSourceDir();
 		createSyncDocumentationSourceTask(project, asciidoctorTask);
-		if (asciidoctorTask instanceof AsciidoctorTask) {
-			boolean pdf = asciidoctorTask.getName().toLowerCase().contains("pdf");
+		if (asciidoctorTask instanceof AsciidoctorTask task) {
+			boolean pdf = task.getName().toLowerCase().contains("pdf");
 			String backend = (!pdf) ? "spring-html" : "spring-pdf";
-			((AsciidoctorTask) asciidoctorTask).outputOptions((outputOptions) -> outputOptions.backends(backend));
+			task.outputOptions((outputOptions) -> outputOptions.backends(backend));
 		}
 	}
 

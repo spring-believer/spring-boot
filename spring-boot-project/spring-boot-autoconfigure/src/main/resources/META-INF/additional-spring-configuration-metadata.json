@@ -1,4 +1,5 @@
 {
+  "groups": [],
   "properties": [
     {
       "name": "server.compression.enabled",
@@ -159,34 +160,6 @@
       }
     },
     {
-      "name": "server.servlet.session.cookie.comment",
-      "description": "Comment for the session cookie."
-    },
-    {
-      "name": "server.servlet.session.cookie.domain",
-      "description": "Domain for the session cookie."
-    },
-    {
-      "name": "server.servlet.session.cookie.http-only",
-      "description": "Whether to use \"HttpOnly\" cookies for session cookies."
-    },
-    {
-      "name": "server.servlet.session.cookie.max-age",
-      "description": "Maximum age of the session cookie. If a duration suffix is not specified, seconds will be used."
-    },
-    {
-      "name": "server.servlet.session.cookie.name",
-      "description": "Session cookie name."
-    },
-    {
-      "name": "server.servlet.session.cookie.path",
-      "description": "Path of the session cookie."
-    },
-    {
-      "name": "server.servlet.session.cookie.secure",
-      "description": "Whether to always mark the session cookie as secure."
-    },
-    {
       "name": "server.servlet.session.persistent",
       "description": "Whether to persist session data between restarts.",
       "defaultValue": false
@@ -269,6 +242,22 @@
     {
       "name": "server.ssl.trust-store-type",
       "description": "Type of the trust store."
+    },
+    {
+      "name": "server.ssl.certificate",
+      "description": "Path to a PEM-encoded SSL certificate file."
+    },
+    {
+      "name": "server.ssl.certificate-private-key",
+      "description": "Path to a PEM-encoded private key file for the SSL certificate."
+    },
+    {
+      "name": "server.ssl.trust-certificate",
+      "description": "Path to a PEM-encoded SSL certificate authority file."
+    },
+    {
+      "name": "server.ssl.trust-certificate-private-key",
+      "description": "Path to a PEM-encoded private key file for the SSL certificate authority."
     },
     {
       "name": "server.tomcat.max-http-post-size",
@@ -357,9 +346,25 @@
       "defaultValue": "tcp://localhost:61616"
     },
     {
+      "name": "spring.artemis.host",
+      "type": "java.lang.String",
+      "deprecation": {
+        "replacement": "spring.artemis.broker-url",
+        "level": "error"
+      }
+    },
+    {
       "name": "spring.artemis.pool.maximum-active-session-per-connection",
       "deprecation": {
         "replacement": "spring.artemis.pool.max-sessions-per-connection"
+      }
+    },
+    {
+      "name": "spring.artemis.port",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "replacement": "spring.artemis.broker-url",
+        "level": "error"
       }
     },
     {
@@ -369,7 +374,11 @@
     },
     {
       "name": "spring.batch.initialize-schema",
-      "defaultValue": "embedded"
+      "type": "org.springframework.boot.sql.init.DatabaseInitializationMode",
+      "deprecation": {
+        "replacement": "spring.batch.jdbc.initialize-schema",
+        "level": "error"
+      }
     },
     {
       "name": "spring.batch.initializer.enabled",
@@ -389,6 +398,22 @@
       "type": "java.lang.Boolean",
       "description": "Execute all Spring Batch jobs in the context on startup.",
       "defaultValue": true
+    },
+    {
+      "name": "spring.batch.schema",
+      "type": "java.lang.String",
+      "deprecation": {
+        "replacement": "spring.batch.jdbc.schema",
+        "level": "error"
+      }
+    },
+    {
+      "name": "spring.batch.table-prefix",
+      "type": "java.lang.String",
+      "deprecation": {
+        "replacement": "spring.batch.jdbc.table-prefix",
+        "level": "error"
+      }
     },
     {
       "name": "spring.couchbase.bootstrap-hosts",
@@ -512,11 +537,15 @@
       "defaultValue": "none"
     },
     {
-      "name": "spring.data.cassandra.connection.connection-timeout",
+      "name": "spring.data.cassandra.connection.connect-timeout",
       "defaultValue": "5s"
     },
     {
       "name": "spring.data.cassandra.connection.init-query-timeout",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "spring.data.cassandra.controlconnection.timeout",
       "defaultValue": "5s"
     },
     {
@@ -541,6 +570,14 @@
       "deprecation": {
         "level": "error"
       }
+    },
+    {
+      "name": "spring.data.cassandra.pool.heartbeat-interval",
+      "defaultValue": "30s"
+    },
+    {
+      "name": "spring.data.cassandra.pool.idle-timeout",
+      "defaultValue": "5s"
     },
     {
       "name": "spring.data.cassandra.pool.max-queue-size",
@@ -578,12 +615,12 @@
       "defaultValue": 5000
     },
     {
-      "name": "spring.data.cassandra.request.timeout",
-      "defaultValue": "2s"
-    },
-    {
       "name": "spring.data.cassandra.request.throttler.type",
       "defaultValue": "none"
+    },
+    {
+      "name": "spring.data.cassandra.request.timeout",
+      "defaultValue": "2s"
     },
     {
       "name": "spring.data.cassandra.retry-policy",
@@ -592,14 +629,6 @@
       "deprecation": {
         "level": "error"
       }
-    },
-    {
-      "name": "spring.data.cassandra.pool.heartbeat-interval",
-      "defaultValue": "30s"
-    },
-    {
-      "name": "spring.data.cassandra.pool.idle-timeout",
-      "defaultValue": "5s"
     },
     {
       "name": "spring.data.couchbase.consistency",
@@ -613,6 +642,12 @@
       "type": "org.springframework.boot.autoconfigure.data.RepositoryType",
       "description": "Type of Couchbase repositories to enable.",
       "defaultValue": "auto"
+    },
+    {
+      "name": "spring.data.elasticsearch.client.reactive.endpoints",
+      "defaultValue": [
+        "localhost:9200"
+      ]
     },
     {
       "name": "spring.data.elasticsearch.cluster-name",
@@ -667,6 +702,14 @@
       "type": "java.lang.Boolean",
       "description": "Whether to enable LDAP repositories.",
       "defaultValue": true
+    },
+    {
+      "name": "spring.data.mongodb.grid-fs-database",
+      "type": "java.lang.String",
+      "deprecation": {
+        "replacement": "spring.data.mongodb.gridfs.database",
+        "level": "error"
+      }
     },
     {
       "name": "spring.data.mongodb.repositories.type",
@@ -756,7 +799,7 @@
       "type": "java.lang.String",
       "description": "Login user of the server.",
       "deprecation": {
-        "replacement": "spring.neo4j.authentication.password",
+        "replacement": "spring.neo4j.authentication.username",
         "level": "warning"
       }
     },
@@ -777,10 +820,41 @@
       "defaultValue": "default"
     },
     {
-      "name": "spring.datasource.initialization-mode",
-      "defaultValue": "embedded"
-    },
-    {
+      "name" : "spring.datasource.continue-on-error",
+      "type" : "java.lang.Boolean",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.continue-on-error"
+      }
+    }, {
+      "name" : "spring.datasource.data",
+      "type" : "java.util.List<java.lang.String>",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.data-locations"
+      }
+    }, {
+      "name" : "spring.datasource.data-password",
+      "type" : "java.lang.String",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.password"
+      }
+    }, {
+      "name" : "spring.datasource.data-username",
+      "type" : "java.lang.String",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.username"
+      }
+    }, {
+      "name" : "spring.datasource.initialization-mode",
+      "type" : "org.springframework.boot.jdbc.DataSourceInitializationMode",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.mode"
+      }
+    }, {
       "name": "spring.datasource.jmx-enabled",
       "type": "java.lang.Boolean",
       "description": "Whether to enable JMX support (if provided by the underlying pool).",
@@ -789,8 +863,49 @@
         "level": "error",
         "replacement": "spring.datasource.tomcat.jmx-enabled"
       }
-    },
-    {
+    }, {
+      "name" : "spring.datasource.platform",
+      "type" : "java.lang.String",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.platform"
+      }
+    }, {
+      "name" : "spring.datasource.schema",
+      "type" : "java.util.List<java.lang.String>",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.schema-locations"
+      }
+    }, {
+      "name" : "spring.datasource.schema-password",
+      "type" : "java.lang.String",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.password"
+      }
+    }, {
+      "name" : "spring.datasource.schema-username",
+      "type" : "java.lang.String",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.username"
+      }
+    }, {
+      "name" : "spring.datasource.separator",
+      "type" : "java.lang.String",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.separator"
+      }
+    }, {
+      "name" : "spring.datasource.sql-script-encoding",
+      "type" : "java.nio.charset.Charset",
+      "deprecation" : {
+        "level" : "error",
+        "replacement": "spring.sql.init.encoding"
+      }
+    }, {
       "name": "spring.elasticsearch.jest.connection-timeout",
       "type": "java.time.Duration",
       "description": "Connection timeout.",
@@ -861,6 +976,42 @@
       ]
     },
     {
+      "name": "spring.elasticsearch.uris",
+      "defaultValue": [
+        "http://localhost:9200"
+      ]
+    },
+    {
+      "name": "spring.elasticsearch.webclient.max-in-memory-size",
+      "type": "org.springframework.util.unit.DataSize",
+      "description": "Limit on the number of bytes that can be buffered whenever the input stream needs to be aggregated.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Reactive Elasticsearch client no longer uses WebClient."
+      }
+    },
+    {
+      "name": "spring.flyway.baseline-migration-prefix",
+      "defaultValue": "B",
+      "description": "Filename prefix for baseline migrations. Requires Flyway Teams.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Removed in Flyway 9.0"
+      }
+    },
+    {
+      "name": "spring.flyway.check-location",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "replacement": "spring.flyway.fail-on-missing-locations",
+        "level": "error"
+      }
+    },
+    {
+      "name": "spring.flyway.connect-retries-interval",
+      "defaultValue": 120
+    },
+    {
       "name": "spring.flyway.dry-run-output",
       "type": "java.io.OutputStream",
       "deprecation": {
@@ -877,6 +1028,46 @@
       }
     },
     {
+      "name": "spring.flyway.ignore-future-migrations",
+      "type": "java.lang.Boolean",
+      "description": "Whether to ignore future migrations when reading the schema history table.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Removed in Flyway 9.0",
+        "replacement": "spring.flyway.ignore-migration-patterns"
+      }
+    },
+    {
+      "name": "spring.flyway.ignore-ignored-migrations",
+      "type": "java.lang.Boolean",
+      "description": "Whether to ignore ignored migrations when reading the schema history table.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Removed in Flyway 9.0",
+        "replacement": "spring.flyway.ignore-migration-patterns"
+      }
+    },
+    {
+      "name": "spring.flyway.ignore-missing-migrations",
+      "type": "java.lang.Boolean",
+      "description": "Whether to ignore missing migrations when reading the schema history table.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Removed in Flyway 9.0",
+        "replacement": "spring.flyway.ignore-migration-patterns"
+      }
+    },
+    {
+      "name": "spring.flyway.ignore-pending-migrations",
+      "type": "java.lang.Boolean",
+      "description": "Whether to ignore pending migrations when reading the schema history table.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Removed in Flyway 9.0",
+        "replacement": "spring.flyway.ignore-migration-patterns"
+      }
+    },
+    {
       "name": "spring.flyway.locations",
       "sourceType": "org.springframework.boot.autoconfigure.flyway.FlywayProperties",
       "defaultValue": [
@@ -886,6 +1077,26 @@
     {
       "name": "spring.flyway.lock-retry-count",
       "defaultValue": 50
+    },
+    {
+      "name": "spring.flyway.oracle-kerberos-config-file",
+      "type": "java.lang.String",
+      "deprecation": {
+        "replacement": "spring.flyway.kerberos-config-file",
+        "level": "error"
+      }
+    },
+    {
+      "name": "spring.flyway.placeholder-separator",
+      "defaultValue": ":"
+    },
+    {
+      "name": "spring.flyway.script-placeholder-prefix",
+      "defaultValue": "FP__"
+    },
+    {
+      "name": "spring.flyway.script-placeholder-suffix",
+      "defaultValue": "__"
     },
     {
       "name": "spring.flyway.sql-migration-suffix",
@@ -958,6 +1169,15 @@
     {
       "name": "spring.groovy.template.suffix",
       "defaultValue": ".tpl"
+    },
+    {
+      "name": "spring.jpa.hibernate.use-new-id-generator-mappings",
+      "type": "java.lang.Boolean",
+      "description": "Whether to use Hibernate's newer IdentifierGenerator for AUTO, TABLE and SEQUENCE. This is actually a shortcut for the \"hibernate.id.new_generator_mappings\" property. When not specified will default to \"true\".",
+      "deprecation": {
+        "level": "error",
+        "reason": "Hibernate no longer supports disabling the use of new ID generator mappings."
+      }
     },
     {
       "name": "spring.http.converters.preferred-json-mapper",
@@ -1059,33 +1279,6 @@
       "deprecation": {
         "level": "error"
       }
-    },
-    {
-      "name": "spring.jersey.type",
-      "defaultValue": "servlet"
-    },
-    {
-      "name": "spring.jmx.default-domain",
-      "type": "java.lang.String",
-      "description": "JMX domain name."
-    },
-    {
-      "name": "spring.jmx.enabled",
-      "type": "java.lang.Boolean",
-      "description": "Expose management beans to the JMX domain.",
-      "defaultValue": false
-    },
-    {
-      "name": "spring.jmx.server",
-      "type": "java.lang.String",
-      "description": "MBeanServer bean name.",
-      "defaultValue": "mbeanServer"
-    },
-    {
-      "name": "spring.jmx.unique-names",
-      "type": "java.lang.Boolean",
-      "description": "Whether unique runtime object names should be ensured.",
-      "defaultValue": false
     },
     {
       "name": "spring.jpa.open-in-view",
@@ -1464,6 +1657,16 @@
       "defaultValue": "required"
     },
     {
+      "name": "spring.kafka.listener.only-log-record-metadata",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Whether to suppress the entire record from being written to the log when retries are being attempted.",
+      "deprecation": {
+        "reason": "Use KafkaUtils#setConsumerRecordFormatter instead.",
+        "level": "error"
+      }
+    },
+    {
       "name": "spring.kafka.listener.type",
       "defaultValue": "single"
     },
@@ -1553,7 +1756,7 @@
       "description": "Check the change log location exists.",
       "defaultValue": true,
       "deprecation": {
-        "reason": "Liquibase has it's own check that checks if the change log location exists making this property redundant.",
+        "reason": "Liquibase has its own check that checks if the change log location exists making this property redundant.",
         "level": "error"
       }
     },
@@ -1565,14 +1768,12 @@
       "defaultValue": false
     },
     {
-      "name": "spring.mongodb.embedded.features",
-      "defaultValue": [
-        "sync_delay"
-      ]
-    },
-    {
       "name": "spring.mustache.prefix",
       "defaultValue": "classpath:/templates/"
+    },
+    {
+      "name": "spring.mustache.reactive.media-types",
+      "defaultValue": "text/html;charset=UTF-8"
     },
     {
       "name": "spring.mustache.suffix",
@@ -1631,7 +1832,7 @@
     },
     {
       "name": "spring.mvc.pathmatch.matching-strategy",
-      "defaultValue": "ant-path-matcher"
+      "defaultValue": "path-pattern-parser"
     },
     {
       "name": "spring.neo4j.security.trust-strategy",
@@ -1640,6 +1841,10 @@
     {
       "name": "spring.neo4j.uri",
       "defaultValue": "bolt://localhost:7687"
+    },
+    {
+      "name": "spring.netty.leak-detection",
+      "defaultValue": "simple"
     },
     {
       "name": "spring.quartz.jdbc.comment-prefix",
@@ -1659,11 +1864,6 @@
     {
       "name": "spring.quartz.scheduler-name",
       "defaultValue": "quartzScheduler"
-    },
-    {
-      "name": "spring.r2dbc.pool.enabled",
-      "type": "java.lang.Boolean",
-      "description": "Whether pooling is enabled. Enabled automatically if \"r2dbc-pool\" is on the classpath."
     },
     {
       "name": "spring.r2dbc.pool.validation-depth",
@@ -1933,6 +2133,14 @@
       "defaultValue": -100
     },
     {
+      "name": "spring.security.oauth2.resourceserver.jwt.jws-algorithm",
+      "type": "java.lang.String",
+      "deprecation": {
+        "replacement": "spring.security.oauth2.resourceserver.jwt.jws-algorithms",
+        "level": "error"
+      }
+    },
+    {
       "name": "spring.session.hazelcast.flush-mode",
       "defaultValue": "on-save"
     },
@@ -1991,6 +2199,25 @@
       "defaultValue": "classpath:/templates/"
     },
     {
+      "name": "spring.thymeleaf.reactive.media-types",
+      "defaultValue": [
+        "text/html",
+        "application/xhtml+xml",
+        "application/xml",
+        "text/xml",
+        "application/rss+xml",
+        "application/atom+xml",
+        "application/javascript",
+        "application/ecmascript",
+        "text/javascript",
+        "text/ecmascript",
+        "application/json",
+        "text/css",
+        "text/plain",
+        "text/event-stream"
+      ]
+    },
+    {
       "name": "spring.thymeleaf.suffix",
       "defaultValue": ".html"
     },
@@ -2005,17 +2232,13 @@
       "defaultValue": false
     },
     {
-      "name": "spring.webflux.session.cookie.same-site",
-      "defaultValue": "lax"
+      "name": "spring.webflux.session.timeout",
+      "defaultValue": "30m"
     },
     {
       "name": "spring.webservices.wsdl-locations",
       "type": "java.util.List<java.lang.String>",
       "description": "Comma-separated list of locations of WSDLs and accompanying XSDs to be exposed as beans."
-    },
-    {
-      "name": "spring.netty.leak-detection",
-      "defaultValue": "simple"
     }
   ],
   "hints": [
@@ -2025,7 +2248,7 @@
         {
           "name": "class-reference",
           "parameters": {
-            "target": "javax.servlet.http.HttpServlet"
+            "target": "jakarta.servlet.http.HttpServlet"
           }
         }
       ]
@@ -2154,14 +2377,6 @@
           }
         }
       ]
-    },
-    {
-      "name": "spring.data.mongodb.grid-fs-database",
-      "type": "java.lang.String",
-      "deprecation": {
-        "replacement": "spring.data.mongodb.gridfs.database",
-        "level": "error"
-      }
     },
     {
       "name": "spring.datasource.data",

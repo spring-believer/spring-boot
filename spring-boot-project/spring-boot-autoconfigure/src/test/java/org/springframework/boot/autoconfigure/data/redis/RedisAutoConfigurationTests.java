@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import org.springframework.data.redis.connection.RedisClusterConfiguration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisNode;
 import org.springframework.data.redis.connection.RedisSentinelConfiguration;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration.LettuceClientConfigurationBuilder;
@@ -236,6 +237,14 @@ class RedisAutoConfigurationTests {
 	}
 
 	@Test
+	void testRedisConfigurationWithCustomBean() {
+		this.contextRunner.withUserConfiguration(RedisStandaloneConfig.class).run((context) -> {
+			LettuceConnectionFactory cf = context.getBean(LettuceConnectionFactory.class);
+			assertThat(cf.getHostName()).isEqualTo("foo");
+		});
+	}
+
+	@Test
 	void testRedisConfigurationWithClientName() {
 		this.contextRunner.withPropertyValues("spring.redis.host:foo", "spring.redis.client-name:spring-boot")
 				.run((context) -> {
@@ -283,34 +292,57 @@ class RedisAutoConfigurationTests {
 
 	@Test
 	void testRedisConfigurationWithSentinelAndAuthentication() {
-		this.contextRunner.withPropertyValues("spring.redis.username=user", "spring.redis.password=password",
-				"spring.redis.sentinel.master:mymaster",
-				"spring.redis.sentinel.nodes:127.0.0.1:26379,  127.0.0.1:26380").run((context) -> {
-					LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
-					assertThat(getUserName(connectionFactory)).isEqualTo("user");
-					assertThat(connectionFactory.getPassword()).isEqualTo("password");
-					RedisSentinelConfiguration sentinelConfiguration = connectionFactory.getSentinelConfiguration();
+		this.contextRunner
+				.withPropertyValues("spring.redis.username=user", "spring.redis.password=password",
+						"spring.redis.sentinel.master:mymaster",
+						"spring.redis.sentinel.nodes:127.0.0.1:26379,  127.0.0.1:26380")
+				.run(assertSentinelConfiguration("user", "password", (sentinelConfiguration) -> {
 					assertThat(sentinelConfiguration.getSentinelPassword().isPresent()).isFalse();
-					Set<RedisNode> sentinels = connectionFactory.getSentinelConfiguration().getSentinels();
+					Set<RedisNode> sentinels = sentinelConfiguration.getSentinels();
 					assertThat(sentinels.stream().map(Object::toString).collect(Collectors.toSet()))
 							.contains("127.0.0.1:26379", "127.0.0.1:26380");
-				});
+				}));
 	}
 
 	@Test
 	void testRedisConfigurationWithSentinelPasswordAndDataNodePassword() {
-		this.contextRunner.withPropertyValues("spring.redis.password=password", "spring.redis.sentinel.password=secret",
-				"spring.redis.sentinel.master:mymaster",
-				"spring.redis.sentinel.nodes:127.0.0.1:26379,  127.0.0.1:26380").run((context) -> {
-					LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
-					assertThat(getUserName(connectionFactory)).isNull();
-					assertThat(connectionFactory.getPassword()).isEqualTo("password");
-					RedisSentinelConfiguration sentinelConfiguration = connectionFactory.getSentinelConfiguration();
+		this.contextRunner
+				.withPropertyValues("spring.redis.password=password", "spring.redis.sentinel.password=secret",
+						"spring.redis.sentinel.master:mymaster",
+						"spring.redis.sentinel.nodes:127.0.0.1:26379,  127.0.0.1:26380")
+				.run(assertSentinelConfiguration(null, "password", (sentinelConfiguration) -> {
+					assertThat(sentinelConfiguration.getSentinelUsername()).isNull();
 					assertThat(new String(sentinelConfiguration.getSentinelPassword().get())).isEqualTo("secret");
 					Set<RedisNode> sentinels = sentinelConfiguration.getSentinels();
 					assertThat(sentinels.stream().map(Object::toString).collect(Collectors.toSet()))
 							.contains("127.0.0.1:26379", "127.0.0.1:26380");
-				});
+				}));
+	}
+
+	@Test
+	void testRedisConfigurationWithSentinelAuthenticationAndDataNodeAuthentication() {
+		this.contextRunner
+				.withPropertyValues("spring.redis.username=username", "spring.redis.password=password",
+						"spring.redis.sentinel.username=sentinel", "spring.redis.sentinel.password=secret",
+						"spring.redis.sentinel.master:mymaster",
+						"spring.redis.sentinel.nodes:127.0.0.1:26379,  127.0.0.1:26380")
+				.run(assertSentinelConfiguration("username", "password", (sentinelConfiguration) -> {
+					assertThat(sentinelConfiguration.getSentinelUsername()).isEqualTo("sentinel");
+					assertThat(new String(sentinelConfiguration.getSentinelPassword().get())).isEqualTo("secret");
+					Set<RedisNode> sentinels = sentinelConfiguration.getSentinels();
+					assertThat(sentinels.stream().map(Object::toString).collect(Collectors.toSet()))
+							.contains("127.0.0.1:26379", "127.0.0.1:26380");
+				}));
+	}
+
+	private ContextConsumer<AssertableApplicationContext> assertSentinelConfiguration(String userName, String password,
+			Consumer<RedisSentinelConfiguration> sentinelConfiguration) {
+		return (context) -> {
+			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
+			assertThat(getUserName(connectionFactory)).isEqualTo(userName);
+			assertThat(connectionFactory.getPassword()).isEqualTo(password);
+			assertThat(connectionFactory.getSentinelConfiguration()).satisfies(sentinelConfiguration);
+		};
 	}
 
 	@Test
@@ -452,6 +484,18 @@ class RedisAutoConfigurationTests {
 		@Bean
 		LettuceClientConfigurationBuilderCustomizer customizer() {
 			return LettuceClientConfigurationBuilder::useSsl;
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class RedisStandaloneConfig {
+
+		@Bean
+		RedisStandaloneConfiguration standaloneConfiguration() {
+			RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+			config.setHostName("foo");
+			return config;
 		}
 
 	}

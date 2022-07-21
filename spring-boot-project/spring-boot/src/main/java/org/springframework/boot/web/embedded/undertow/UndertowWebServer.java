@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -168,12 +168,12 @@ public class UndertowWebServer implements WebServer {
 		HttpHandler handler = null;
 		for (HttpHandlerFactory factory : this.httpHandlerFactories) {
 			handler = factory.getHandler(handler);
-			if (handler instanceof Closeable) {
-				this.closeables.add((Closeable) handler);
+			if (handler instanceof Closeable closeable) {
+				this.closeables.add(closeable);
 			}
-			if (handler instanceof GracefulShutdownHandler) {
+			if (handler instanceof GracefulShutdownHandler shutdownHandler) {
 				Assert.isNull(this.gracefulShutdown, "Only a single GracefulShutdownHandler can be defined");
-				this.gracefulShutdown = (GracefulShutdownHandler) handler;
+				this.gracefulShutdown = shutdownHandler;
 			}
 		}
 		return handler;
@@ -214,10 +214,10 @@ public class UndertowWebServer implements WebServer {
 
 	private UndertowWebServer.Port getPortFromChannel(BoundChannel channel) {
 		SocketAddress socketAddress = channel.getLocalAddress();
-		if (socketAddress instanceof InetSocketAddress) {
+		if (socketAddress instanceof InetSocketAddress inetSocketAddress) {
 			Field sslField = ReflectionUtils.findField(channel.getClass(), "ssl");
 			String protocol = (sslField != null) ? "https" : "http";
-			return new UndertowWebServer.Port(((InetSocketAddress) socketAddress).getPort(), protocol);
+			return new UndertowWebServer.Port(inetSocketAddress.getPort(), protocol);
 		}
 		return null;
 	}
@@ -295,7 +295,7 @@ public class UndertowWebServer implements WebServer {
 		logger.info("Commencing graceful shutdown. Waiting for active requests to complete");
 		this.gracefulShutdownCallback.set(callback);
 		this.gracefulShutdown.shutdown();
-		this.gracefulShutdown.addShutdownListener((success) -> notifyGracefulCallback(success));
+		this.gracefulShutdown.addShutdownListener(this::notifyGracefulCallback);
 	}
 
 	private void notifyGracefulCallback(boolean success) {

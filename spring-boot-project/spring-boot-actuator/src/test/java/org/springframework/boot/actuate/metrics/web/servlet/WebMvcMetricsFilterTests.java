@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,14 +30,10 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.MockClock;
 import io.micrometer.core.instrument.Tag;
@@ -46,10 +42,13 @@ import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.config.MeterFilterReply;
 import io.micrometer.core.instrument.simple.SimpleConfig;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.micrometer.core.lang.NonNull;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.prometheus.client.CollectorRegistry;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -78,8 +77,10 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
-import org.springframework.web.util.NestedServletException;
+import org.springframework.web.util.pattern.PathPatternParser;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -127,8 +128,8 @@ class WebMvcMetricsFilterTests {
 
 	@BeforeEach
 	void setupMockMvc() {
-		this.mvc = MockMvcBuilders.webAppContextSetup(this.context)
-				.addFilters(this.filter, new RedirectAndNotFoundFilter()).build();
+		this.mvc = MockMvcBuilders.webAppContextSetup(this.context).addFilters(this.filter, new CustomBehaviorFilter())
+				.build();
 	}
 
 	@Test
@@ -165,7 +166,7 @@ class WebMvcMetricsFilterTests {
 
 	@Test
 	void redirectRequest() throws Exception {
-		this.mvc.perform(get("/api/redirect").header(RedirectAndNotFoundFilter.TEST_MISBEHAVE_HEADER, "302"))
+		this.mvc.perform(get("/api/redirect").header(CustomBehaviorFilter.TEST_STATUS_HEADER, "302"))
 				.andExpect(status().is3xxRedirection());
 		assertThat(this.registry.get("http.server.requests").tags("uri", "REDIRECTION").tags("status", "302").timer())
 				.isNotNull();
@@ -173,7 +174,7 @@ class WebMvcMetricsFilterTests {
 
 	@Test
 	void notFoundRequest() throws Exception {
-		this.mvc.perform(get("/api/not/found").header(RedirectAndNotFoundFilter.TEST_MISBEHAVE_HEADER, "404"))
+		this.mvc.perform(get("/api/not/found").header(CustomBehaviorFilter.TEST_STATUS_HEADER, "404"))
 				.andExpect(status().is4xxClientError());
 		assertThat(this.registry.get("http.server.requests").tags("uri", "NOT_FOUND").tags("status", "404").timer())
 				.isNotNull();
@@ -181,10 +182,20 @@ class WebMvcMetricsFilterTests {
 
 	@Test
 	void unhandledError() {
-		assertThatCode(() -> this.mvc.perform(get("/api/c1/unhandledError/10")).andExpect(status().isOk()))
+		assertThatCode(() -> this.mvc.perform(get("/api/c1/unhandledError/10")))
 				.hasRootCauseInstanceOf(RuntimeException.class);
 		assertThat(this.registry.get("http.server.requests").tags("exception", "RuntimeException").timer().count())
 				.isEqualTo(1L);
+	}
+
+	@Test
+	void unhandledServletException() {
+		assertThatCode(() -> this.mvc
+				.perform(get("/api/filterError").header(CustomBehaviorFilter.TEST_SERVLET_EXCEPTION_HEADER, "throw")))
+						.isInstanceOf(ServletException.class);
+		Id meterId = this.registry.get("http.server.requests").tags("exception", "IllegalStateException").timer()
+				.getId();
+		assertThat(meterId.getTag("status")).isEqualTo("500");
 	}
 
 	@Test
@@ -192,8 +203,9 @@ class WebMvcMetricsFilterTests {
 		MvcResult result = this.mvc.perform(get("/api/c1/streamingError")).andExpect(request().asyncStarted())
 				.andReturn();
 		assertThatIOException().isThrownBy(() -> this.mvc.perform(asyncDispatch(result)).andReturn());
-		assertThat(this.registry.get("http.server.requests").tags("exception", "IOException").timer().count())
-				.isEqualTo(1L);
+		Id meterId = this.registry.get("http.server.requests").tags("exception", "IOException").timer().getId();
+		// Response is committed before error occurs so status is 200 (OK)
+		assertThat(meterId.getTag("status")).isEqualTo("200");
 	}
 
 	@Test
@@ -209,8 +221,10 @@ class WebMvcMetricsFilterTests {
 		}
 		catch (Throwable ignore) {
 		}
-		assertThat(this.registry.get("http.server.requests").tag("uri", "/api/c1/anonymousError/{id}").timer().getId()
-				.getTag("exception")).endsWith("$1");
+		Id meterId = this.registry.get("http.server.requests").tag("uri", "/api/c1/anonymousError/{id}").timer()
+				.getId();
+		assertThat(meterId.getTag("exception")).endsWith("$1");
+		assertThat(meterId.getTag("status")).isEqualTo("500");
 	}
 
 	@Test
@@ -242,8 +256,7 @@ class WebMvcMetricsFilterTests {
 	void asyncRequestThatThrowsUncheckedException() throws Exception {
 		MvcResult result = this.mvc.perform(get("/api/c1/completableFutureException"))
 				.andExpect(request().asyncStarted()).andReturn();
-		assertThatExceptionOfType(NestedServletException.class)
-				.isThrownBy(() -> this.mvc.perform(asyncDispatch(result)))
+		assertThatExceptionOfType(ServletException.class).isThrownBy(() -> this.mvc.perform(asyncDispatch(result)))
 				.withRootCauseInstanceOf(RuntimeException.class);
 		assertThat(this.registry.get("http.server.requests").tags("uri", "/api/c1/completableFutureException").timer()
 				.count()).isEqualTo(1);
@@ -302,6 +315,7 @@ class WebMvcMetricsFilterTests {
 
 	@Test
 	void trailingSlashShouldNotRecordDuplicateMetrics() throws Exception {
+
 		this.mvc.perform(get("/api/c1/simple/10")).andExpect(status().isOk());
 		this.mvc.perform(get("/api/c1/simple/10/")).andExpect(status().isOk());
 		assertThat(this.registry.get("http.server.requests").tags("status", "200", "uri", "/api/c1/simple/{id}").timer()
@@ -318,7 +332,7 @@ class WebMvcMetricsFilterTests {
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
 	@Import({ Controller1.class, Controller2.class })
-	static class MetricsFilterApp {
+	static class MetricsFilterApp implements WebMvcConfigurer {
 
 		@Bean
 		Clock micrometerClock() {
@@ -344,8 +358,7 @@ class WebMvcMetricsFilterTests {
 					clock);
 			r.config().meterFilter(new MeterFilter() {
 				@Override
-				@NonNull
-				public MeterFilterReply accept(@NonNull Meter.Id id) {
+				public MeterFilterReply accept(Meter.Id id) {
 					for (Tag tag : id.getTags()) {
 						if (tag.getKey().equals("uri")
 								&& (tag.getValue().contains("histogram") || tag.getValue().contains("percentiles"))) {
@@ -359,8 +372,8 @@ class WebMvcMetricsFilterTests {
 		}
 
 		@Bean
-		RedirectAndNotFoundFilter redirectAndNotFoundFilter() {
-			return new RedirectAndNotFoundFilter();
+		CustomBehaviorFilter customBehaviorFilter() {
+			return new CustomBehaviorFilter();
 		}
 
 		@Bean(name = "callableBarrier")
@@ -382,6 +395,14 @@ class WebMvcMetricsFilterTests {
 		@Bean
 		FaultyWebMvcTagsProvider faultyWebMvcTagsProvider() {
 			return new FaultyWebMvcTagsProvider();
+		}
+
+		@Override
+		@SuppressWarnings("deprecation")
+		public void configurePathMatch(PathMatchConfigurer configurer) {
+			PathPatternParser pathPatternParser = new PathPatternParser();
+			pathPatternParser.setMatchOptionalTrailingSeparator(true);
+			configurer.setPatternParser(pathPatternParser);
 		}
 
 	}
@@ -474,8 +495,10 @@ class WebMvcMetricsFilterTests {
 		}
 
 		@GetMapping("/streamingError")
-		ResponseBodyEmitter streamingError() {
+		ResponseBodyEmitter streamingError() throws IOException {
 			ResponseBodyEmitter emitter = new ResponseBodyEmitter();
+			emitter.send("some data");
+			emitter.send("some more data");
 			emitter.completeWithError(new IOException("error while writing to the response"));
 			return emitter;
 		}
@@ -526,20 +549,24 @@ class WebMvcMetricsFilterTests {
 
 	}
 
-	static class RedirectAndNotFoundFilter extends OncePerRequestFilter {
+	static class CustomBehaviorFilter extends OncePerRequestFilter {
 
-		static final String TEST_MISBEHAVE_HEADER = "x-test-misbehave-status";
+		static final String TEST_STATUS_HEADER = "x-test-status";
+
+		static final String TEST_SERVLET_EXCEPTION_HEADER = "x-test-servlet-exception";
 
 		@Override
 		protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
 				FilterChain filterChain) throws ServletException, IOException {
-			String misbehave = request.getHeader(TEST_MISBEHAVE_HEADER);
-			if (misbehave != null) {
-				response.setStatus(Integer.parseInt(misbehave));
+			String misbehaveStatus = request.getHeader(TEST_STATUS_HEADER);
+			if (misbehaveStatus != null) {
+				response.setStatus(Integer.parseInt(misbehaveStatus));
+				return;
 			}
-			else {
-				filterChain.doFilter(request, response);
+			if (request.getHeader(TEST_SERVLET_EXCEPTION_HEADER) != null) {
+				throw new ServletException(new IllegalStateException());
 			}
+			filterChain.doFilter(request, response);
 		}
 
 	}

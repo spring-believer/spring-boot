@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 package org.springframework.boot.autoconfigure.security.servlet;
 
 import java.security.interfaces.RSAPublicKey;
+import java.util.EnumSet;
 
-import javax.servlet.DispatcherType;
-
+import jakarta.servlet.DispatcherType;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
 
@@ -36,23 +36,26 @@ import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.boot.web.servlet.DelegatingFilterProxyRegistrationBean;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.web.servlet.filter.ErrorPageSecurityFilter;
 import org.springframework.boot.web.servlet.filter.OrderedFilter;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.mock.web.MockServletContext;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.data.repository.query.SecurityEvaluationContextExtension;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -98,9 +101,12 @@ class SecurityAutoConfigurationTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void securityConfigurerBacksOffWhenOtherWebSecurityAdapterBeanPresent() {
 		this.contextRunner.withUserConfiguration(WebSecurity.class).run((context) -> {
-			assertThat(context.getBeansOfType(WebSecurityConfigurerAdapter.class).size()).isEqualTo(1);
+			assertThat(context.getBeansOfType(
+					org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter.class)
+					.size()).isEqualTo(1);
 			assertThat(context.containsBean("securityAutoConfigurationTests.WebSecurity")).isTrue();
 		});
 	}
@@ -224,6 +230,31 @@ class SecurityAutoConfigurationTests {
 				.run((context) -> assertThat(context.getBean(JwtProperties.class).getPublicKey()).isNotNull());
 	}
 
+	@Test
+	@SuppressWarnings("unchecked")
+	void filterRegistrationBeanForErrorPageSecurityInterceptor() {
+		this.contextRunner.withInitializer((context) -> context.setServletContext(new MockServletContext()))
+				.run(((context) -> {
+					FilterRegistrationBean<?> bean = context.getBean(FilterRegistrationBean.class);
+					assertThat(bean.getFilter()).isInstanceOf(ErrorPageSecurityFilter.class);
+					EnumSet<DispatcherType> dispatcherTypes = (EnumSet<DispatcherType>) ReflectionTestUtils
+							.getField(bean, "dispatcherTypes");
+					assertThat(dispatcherTypes).containsExactly(DispatcherType.ERROR);
+				}));
+	}
+
+	@Test
+	void filterForErrorPageSecurityInterceptorWhenWebInvocationPrivilegeEvaluatorNotPresent() {
+		this.contextRunner.withClassLoader(new FilteredClassLoader("org.springframework.security.config"))
+				.run((context) -> assertThat(context).doesNotHaveBean("errorPageSecurityFilter"));
+	}
+
+	@Test
+	void filterForErrorPageSecurityInterceptorConditionalOnClass() {
+		this.contextRunner.withClassLoader(new FilteredClassLoader("org.springframework.security.web"))
+				.run((context) -> assertThat(context).doesNotHaveBean("errorPageSecurityFilter"));
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	@TestAutoConfigurationPackage(City.class)
 	static class EntityConfiguration {
@@ -256,7 +287,9 @@ class SecurityAutoConfigurationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebSecurity
-	static class WebSecurity extends WebSecurityConfigurerAdapter {
+	@SuppressWarnings("deprecation")
+	static class WebSecurity
+			extends org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter {
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.bundling.Jar;
+import org.gradle.work.DisableCachingByDefault;
 
 /**
  * A custom {@link Jar} task that produces a Spring Boot executable jar.
@@ -44,6 +45,7 @@ import org.gradle.api.tasks.bundling.Jar;
  * @author Phillip Webb
  * @since 2.0.0
  */
+@DisableCachingByDefault(because = "Not worth caching")
 public class BootJar extends Jar implements BootArchive {
 
 	private static final String LAUNCHER = "org.springframework.boot.loader.JarLauncher";
@@ -64,9 +66,9 @@ public class BootJar extends Jar implements BootArchive {
 
 	private final Property<String> mainClass;
 
-	private FileCollection classpath;
+	private final LayeredSpec layered;
 
-	private LayeredSpec layered = new LayeredSpec();
+	private FileCollection classpath;
 
 	/**
 	 * Creates a new {@code BootJar} task.
@@ -76,6 +78,7 @@ public class BootJar extends Jar implements BootArchive {
 		Project project = getProject();
 		this.bootInfSpec = project.copySpec().into("BOOT-INF");
 		this.mainClass = project.getObjects().property(String.class);
+		this.layered = project.getObjects().newInstance(LayeredSpec.class);
 		configureBootInfSpec(this.bootInfSpec);
 		getMainSpec().with(this.bootInfSpec);
 		project.getConfigurations().all((configuration) -> {
@@ -91,8 +94,8 @@ public class BootJar extends Jar implements BootArchive {
 	private void configureBootInfSpec(CopySpec bootInfSpec) {
 		bootInfSpec.into("classes", fromCallTo(this::classpathDirectories));
 		bootInfSpec.into("lib", fromCallTo(this::classpathFiles)).eachFile(this.support::excludeNonZipFiles);
-		bootInfSpec.filesMatching("module-info.class",
-				(details) -> details.setRelativePath(details.getRelativeSourcePath()));
+		this.support.moveModuleInfoToRoot(bootInfSpec);
+		moveMetaInfToRoot(bootInfSpec);
 	}
 
 	private Iterable<File> classpathDirectories() {
@@ -105,6 +108,16 @@ public class BootJar extends Jar implements BootArchive {
 
 	private Iterable<File> classpathEntries(Spec<File> filter) {
 		return (this.classpath != null) ? this.classpath.filter(filter) : Collections.emptyList();
+	}
+
+	private void moveMetaInfToRoot(CopySpec spec) {
+		spec.eachFile((file) -> {
+			String path = file.getRelativeSourcePath().getPathString();
+			if (path.startsWith("META-INF/") && !path.equals("META-INF/aop.xml") && !path.endsWith(".kotlin_module")
+					&& !path.startsWith("META-INF/services/")) {
+				this.support.moveToRoot(file);
+			}
+		});
 	}
 
 	@Override

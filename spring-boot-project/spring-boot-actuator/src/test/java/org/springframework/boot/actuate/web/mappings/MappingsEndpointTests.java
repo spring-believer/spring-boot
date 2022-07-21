@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import javax.servlet.FilterRegistration;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRegistration;
-
+import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRegistration;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.web.mappings.MappingsEndpoint.ApplicationMappings;
@@ -164,7 +163,7 @@ class MappingsEndpointTests {
 							contextMappings, "dispatcherHandlers");
 					assertThat(dispatcherHandlers).containsOnlyKeys("webHandler");
 					List<DispatcherHandlerMappingDescription> handlerMappings = dispatcherHandlers.get("webHandler");
-					assertThat(handlerMappings).hasSize(3);
+					assertThat(handlerMappings).hasSize(4);
 				});
 	}
 
@@ -209,6 +208,11 @@ class MappingsEndpointTests {
 		@RequestMapping("/three")
 		void three() {
 
+		}
+
+		@Bean
+		RouterFunction<ServerResponse> routerFunctionWithAttributes() {
+			return route(GET("/four"), (request) -> ServerResponse.ok().build()).withAttribute("test", "test");
 		}
 
 	}

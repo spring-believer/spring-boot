@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,9 +37,12 @@ class DockerSpecTests {
 	@Test
 	void asDockerConfigurationWithDefaults() {
 		DockerSpec dockerSpec = new DockerSpec();
-		assertThat(dockerSpec.asDockerConfiguration().getHost()).isNull();
-		assertThat(dockerSpec.asDockerConfiguration().getBuilderRegistryAuthentication()).isNull();
-		assertThat(dockerSpec.asDockerConfiguration().getPublishRegistryAuthentication()).isNull();
+		DockerConfiguration dockerConfiguration = dockerSpec.asDockerConfiguration();
+		assertThat(dockerConfiguration.getHost()).isNull();
+		assertThat(dockerConfiguration.getBuilderRegistryAuthentication()).isNull();
+		assertThat(decoded(dockerConfiguration.getPublishRegistryAuthentication().getAuthHeader()))
+				.contains("\"username\" : \"\"").contains("\"password\" : \"\"").contains("\"email\" : \"\"")
+				.contains("\"serveraddress\" : \"\"");
 	}
 
 	@Test
@@ -53,8 +56,11 @@ class DockerSpecTests {
 		assertThat(host.getAddress()).isEqualTo("docker.example.com");
 		assertThat(host.isSecure()).isEqualTo(true);
 		assertThat(host.getCertificatePath()).isEqualTo("/tmp/ca-cert");
+		assertThat(dockerConfiguration.isBindHostToBuilder()).isFalse();
 		assertThat(dockerSpec.asDockerConfiguration().getBuilderRegistryAuthentication()).isNull();
-		assertThat(dockerSpec.asDockerConfiguration().getPublishRegistryAuthentication()).isNull();
+		assertThat(decoded(dockerConfiguration.getPublishRegistryAuthentication().getAuthHeader()))
+				.contains("\"username\" : \"\"").contains("\"password\" : \"\"").contains("\"email\" : \"\"")
+				.contains("\"serveraddress\" : \"\"");
 	}
 
 	@Test
@@ -66,8 +72,28 @@ class DockerSpecTests {
 		assertThat(host.getAddress()).isEqualTo("docker.example.com");
 		assertThat(host.isSecure()).isEqualTo(false);
 		assertThat(host.getCertificatePath()).isNull();
+		assertThat(dockerConfiguration.isBindHostToBuilder()).isFalse();
 		assertThat(dockerSpec.asDockerConfiguration().getBuilderRegistryAuthentication()).isNull();
-		assertThat(dockerSpec.asDockerConfiguration().getPublishRegistryAuthentication()).isNull();
+		assertThat(decoded(dockerConfiguration.getPublishRegistryAuthentication().getAuthHeader()))
+				.contains("\"username\" : \"\"").contains("\"password\" : \"\"").contains("\"email\" : \"\"")
+				.contains("\"serveraddress\" : \"\"");
+	}
+
+	@Test
+	void asDockerConfigurationWithBindHostToBuilder() {
+		DockerSpec dockerSpec = new DockerSpec();
+		dockerSpec.setHost("docker.example.com");
+		dockerSpec.setBindHostToBuilder(true);
+		DockerConfiguration dockerConfiguration = dockerSpec.asDockerConfiguration();
+		DockerHost host = dockerConfiguration.getHost();
+		assertThat(host.getAddress()).isEqualTo("docker.example.com");
+		assertThat(host.isSecure()).isEqualTo(false);
+		assertThat(host.getCertificatePath()).isNull();
+		assertThat(dockerConfiguration.isBindHostToBuilder()).isTrue();
+		assertThat(dockerSpec.asDockerConfiguration().getBuilderRegistryAuthentication()).isNull();
+		assertThat(decoded(dockerConfiguration.getPublishRegistryAuthentication().getAuthHeader()))
+				.contains("\"username\" : \"\"").contains("\"password\" : \"\"").contains("\"email\" : \"\"")
+				.contains("\"serveraddress\" : \"\"");
 	}
 
 	@Test

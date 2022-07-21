@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,11 @@ import java.util.Map;
 import io.undertow.UndertowOptions;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import org.springframework.boot.convert.DurationUnit;
 import org.springframework.boot.web.server.Compression;
+import org.springframework.boot.web.server.Cookie;
 import org.springframework.boot.web.server.Http2;
 import org.springframework.boot.web.server.Shutdown;
 import org.springframework.boot.web.server.Ssl;
@@ -116,6 +118,8 @@ public class ServerProperties {
 
 	private final Servlet servlet = new Servlet();
 
+	private final Reactive reactive = new Reactive();
+
 	private final Tomcat tomcat = new Tomcat();
 
 	private final Jetty jetty = new Jetty();
@@ -188,6 +192,10 @@ public class ServerProperties {
 		return this.servlet;
 	}
 
+	public Reactive getReactive() {
+		return this.reactive;
+	}
+
 	public Tomcat getTomcat() {
 		return this.tomcat;
 	}
@@ -213,7 +221,7 @@ public class ServerProperties {
 	}
 
 	/**
-	 * Servlet properties.
+	 * Servlet server properties.
 	 */
 	public static class Servlet {
 
@@ -255,7 +263,10 @@ public class ServerProperties {
 		}
 
 		private String cleanContextPath(String contextPath) {
-			String candidate = StringUtils.trimWhitespace(contextPath);
+			String candidate = null;
+			if (StringUtils.hasLength(contextPath)) {
+				candidate = contextPath.strip();
+			}
 			if (StringUtils.hasText(candidate) && candidate.endsWith("/")) {
 				return candidate.substring(0, candidate.length() - 1);
 			}
@@ -292,6 +303,44 @@ public class ServerProperties {
 
 		public Session getSession() {
 			return this.session;
+		}
+
+	}
+
+	/**
+	 * Reactive server properties.
+	 */
+	public static class Reactive {
+
+		private final Session session = new Session();
+
+		public Session getSession() {
+			return this.session;
+		}
+
+		public static class Session {
+
+			/**
+			 * Session timeout. If a duration suffix is not specified, seconds will be
+			 * used.
+			 */
+			@DurationUnit(ChronoUnit.SECONDS)
+			private Duration timeout = Duration.ofMinutes(30);
+
+			private final Cookie cookie = new Cookie();
+
+			public Duration getTimeout() {
+				return this.timeout;
+			}
+
+			public void setTimeout(Duration timeout) {
+				this.timeout = timeout;
+			}
+
+			public Cookie getCookie() {
+				return this.cookie;
+			}
+
 		}
 
 	}
@@ -940,9 +989,15 @@ public class ServerProperties {
 
 			/**
 			 * Name of the HTTP header from which the remote IP is extracted. For
-			 * instance, `X-FORWARDED-FOR`.
+			 * instance, 'X-FORWARDED-FOR'.
 			 */
 			private String remoteIpHeader;
+
+			/**
+			 * Regular expression defining proxies that are trusted when they appear in
+			 * the "remote-ip-header" header.
+			 */
+			private String trustedProxies;
 
 			public String getInternalProxies() {
 				return this.internalProxies;
@@ -990,6 +1045,14 @@ public class ServerProperties {
 
 			public void setRemoteIpHeader(String remoteIpHeader) {
 				this.remoteIpHeader = remoteIpHeader;
+			}
+
+			public String getTrustedProxies() {
+				return this.trustedProxies;
+			}
+
+			public void setTrustedProxies(String trustedProxies) {
+				this.trustedProxies = trustedProxies;
 			}
 
 		}
@@ -1296,6 +1359,12 @@ public class ServerProperties {
 		private DataSize maxInitialLineLength = DataSize.ofKilobytes(4);
 
 		/**
+		 * Maximum number of requests that can be made per connection. By default, a
+		 * connection serves unlimited number of requests.
+		 */
+		private Integer maxKeepAliveRequests;
+
+		/**
 		 * Whether to validate headers when decoding requests.
 		 */
 		private boolean validateHeaders = true;
@@ -1330,10 +1399,13 @@ public class ServerProperties {
 			this.initialBufferSize = initialBufferSize;
 		}
 
+		@Deprecated
+		@DeprecatedConfigurationProperty(reason = "Deprecated for removal in Reactor Netty")
 		public DataSize getMaxChunkSize() {
 			return this.maxChunkSize;
 		}
 
+		@Deprecated
 		public void setMaxChunkSize(DataSize maxChunkSize) {
 			this.maxChunkSize = maxChunkSize;
 		}
@@ -1344,6 +1416,14 @@ public class ServerProperties {
 
 		public void setMaxInitialLineLength(DataSize maxInitialLineLength) {
 			this.maxInitialLineLength = maxInitialLineLength;
+		}
+
+		public Integer getMaxKeepAliveRequests() {
+			return this.maxKeepAliveRequests;
+		}
+
+		public void setMaxKeepAliveRequests(Integer maxKeepAliveRequests) {
+			this.maxKeepAliveRequests = maxKeepAliveRequests;
 		}
 
 		public boolean isValidateHeaders() {

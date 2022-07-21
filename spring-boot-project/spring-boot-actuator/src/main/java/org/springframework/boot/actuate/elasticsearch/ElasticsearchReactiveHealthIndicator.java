@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,15 @@
 
 package org.springframework.boot.actuate.elasticsearch;
 
-import java.util.Map;
-
+import co.elastic.clients.elasticsearch._types.HealthStatus;
+import co.elastic.clients.elasticsearch.cluster.HealthResponse;
 import reactor.core.publisher.Mono;
 
 import org.springframework.boot.actuate.health.AbstractReactiveHealthIndicator;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.actuate.health.Status;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.data.elasticsearch.client.reactive.ReactiveElasticsearchClient;
-import org.springframework.web.reactive.function.client.ClientResponse;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.data.elasticsearch.client.elc.ReactiveElasticsearchClient;
 
 /**
  * {@link HealthIndicator} for an Elasticsearch cluster using a
@@ -40,11 +37,6 @@ import org.springframework.web.reactive.function.client.WebClient;
  */
 public class ElasticsearchReactiveHealthIndicator extends AbstractReactiveHealthIndicator {
 
-	private static final ParameterizedTypeReference<Map<String, Object>> STRING_OBJECT_MAP = new ParameterizedTypeReference<Map<String, Object>>() {
-	};
-
-	private static final String RED_STATUS = "red";
-
 	private final ReactiveElasticsearchClient client;
 
 	public ElasticsearchReactiveHealthIndicator(ReactiveElasticsearchClient client) {
@@ -54,28 +46,33 @@ public class ElasticsearchReactiveHealthIndicator extends AbstractReactiveHealth
 
 	@Override
 	protected Mono<Health> doHealthCheck(Health.Builder builder) {
-		return this.client.execute((webClient) -> getHealth(builder, webClient));
+		return this.client.cluster().health((b) -> b).map((response) -> processResponse(builder, response));
 	}
 
-	private Mono<Health> getHealth(Health.Builder builder, WebClient webClient) {
-		return webClient.get().uri("/_cluster/health/").exchangeToMono((response) -> doHealthCheck(builder, response));
-	}
-
-	private Mono<Health> doHealthCheck(Health.Builder builder, ClientResponse response) {
-		if (response.statusCode().is2xxSuccessful()) {
-			return response.bodyToMono(STRING_OBJECT_MAP).map((body) -> getHealth(builder, body));
+	private Health processResponse(Health.Builder builder, HealthResponse response) {
+		if (!response.timedOut()) {
+			HealthStatus status = response.status();
+			builder.status((HealthStatus.Red == status) ? Status.OUT_OF_SERVICE : Status.UP);
+			builder.withDetail("cluster_name", response.clusterName());
+			builder.withDetail("status", response.status().jsonValue());
+			builder.withDetail("timed_out", response.timedOut());
+			builder.withDetail("number_of_nodes", response.numberOfNodes());
+			builder.withDetail("number_of_data_nodes", response.numberOfDataNodes());
+			builder.withDetail("active_primary_shards", response.activePrimaryShards());
+			builder.withDetail("active_shards", response.activeShards());
+			builder.withDetail("relocating_shards", response.relocatingShards());
+			builder.withDetail("initializing_shards", response.initializingShards());
+			builder.withDetail("unassigned_shards", response.unassignedShards());
+			builder.withDetail("delayed_unassigned_shards", response.delayedUnassignedShards());
+			builder.withDetail("number_of_pending_tasks", response.numberOfPendingTasks());
+			builder.withDetail("number_of_in_flight_fetch", response.numberOfInFlightFetch());
+			builder.withDetail("task_max_waiting_in_queue_millis",
+					response.taskMaxWaitingInQueueMillis().toEpochMilli());
+			builder.withDetail("active_shards_percent_as_number",
+					Double.parseDouble(response.activeShardsPercentAsNumber()));
+			return builder.build();
 		}
-		builder.down();
-		builder.withDetail("statusCode", response.rawStatusCode());
-		builder.withDetail("reasonPhrase", response.statusCode().getReasonPhrase());
-		return response.releaseBody().thenReturn(builder.build());
-	}
-
-	private Health getHealth(Health.Builder builder, Map<String, Object> body) {
-		String status = (String) body.get("status");
-		builder.status(RED_STATUS.equals(status) ? Status.OUT_OF_SERVICE : Status.UP);
-		builder.withDetails(body);
-		return builder.build();
+		return builder.down().build();
 	}
 
 }

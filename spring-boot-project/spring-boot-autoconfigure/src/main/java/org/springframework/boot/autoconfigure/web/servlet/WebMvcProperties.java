@@ -41,7 +41,7 @@ import org.springframework.validation.DefaultMessageCodesResolver;
 public class WebMvcProperties {
 
 	/**
-	 * Formatting strategy for message codes. For instance, `PREFIX_ERROR_CODE`.
+	 * Formatting strategy for message codes. For instance, 'PREFIX_ERROR_CODE'.
 	 */
 	private DefaultMessageCodesResolver.Format messageCodesResolverFormat;
 
@@ -401,7 +401,7 @@ public class WebMvcProperties {
 		/**
 		 * Choice of strategy for matching request paths against registered mappings.
 		 */
-		private MatchingStrategy matchingStrategy = MatchingStrategy.ANT_PATH_MATCHER;
+		private MatchingStrategy matchingStrategy = MatchingStrategy.PATH_PATTERN_PARSER;
 
 		/**
 		 * Whether to use suffix pattern match (".*") when matching patterns to requests.
@@ -456,17 +456,17 @@ public class WebMvcProperties {
 	public static class Format {
 
 		/**
-		 * Date format to use, for example `dd/MM/yyyy`.
+		 * Date format to use, for example 'dd/MM/yyyy'.
 		 */
 		private String date;
 
 		/**
-		 * Time format to use, for example `HH:mm:ss`.
+		 * Time format to use, for example 'HH:mm:ss'.
 		 */
 		private String time;
 
 		/**
-		 * Date-time format to use, for example `yyyy-MM-dd HH:mm:ss`.
+		 * Date-time format to use, for example 'yyyy-MM-dd HH:mm:ss'.
 		 */
 		private String dateTime;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,10 +99,12 @@ class SharedMetadataReaderFactoryContextInitializer
 		}
 
 		private void register(BeanDefinitionRegistry registry) {
-			BeanDefinition definition = BeanDefinitionBuilder
-					.genericBeanDefinition(SharedMetadataReaderFactoryBean.class, SharedMetadataReaderFactoryBean::new)
-					.getBeanDefinition();
-			registry.registerBeanDefinition(BEAN_NAME, definition);
+			if (!registry.containsBeanDefinition(BEAN_NAME)) {
+				BeanDefinition definition = BeanDefinitionBuilder
+						.rootBeanDefinition(SharedMetadataReaderFactoryBean.class, SharedMetadataReaderFactoryBean::new)
+						.getBeanDefinition();
+				registry.registerBeanDefinition(BEAN_NAME, definition);
+			}
 		}
 
 		private void configureConfigurationClassPostProcessor(BeanDefinitionRegistry registry) {
@@ -115,8 +117,8 @@ class SharedMetadataReaderFactoryContextInitializer
 		}
 
 		private void configureConfigurationClassPostProcessor(BeanDefinition definition) {
-			if (definition instanceof AbstractBeanDefinition) {
-				configureConfigurationClassPostProcessor((AbstractBeanDefinition) definition);
+			if (definition instanceof AbstractBeanDefinition abstractBeanDefinition) {
+				configureConfigurationClassPostProcessor(abstractBeanDefinition);
 				return;
 			}
 			configureConfigurationClassPostProcessor(definition.getPropertyValues());
@@ -157,8 +159,8 @@ class SharedMetadataReaderFactoryContextInitializer
 		@Override
 		public Object get() {
 			Object instance = this.instanceSupplier.get();
-			if (instance instanceof ConfigurationClassPostProcessor) {
-				configureConfigurationClassPostProcessor((ConfigurationClassPostProcessor) instance);
+			if (instance instanceof ConfigurationClassPostProcessor postProcessor) {
+				configureConfigurationClassPostProcessor(postProcessor);
 			}
 			return instance;
 		}

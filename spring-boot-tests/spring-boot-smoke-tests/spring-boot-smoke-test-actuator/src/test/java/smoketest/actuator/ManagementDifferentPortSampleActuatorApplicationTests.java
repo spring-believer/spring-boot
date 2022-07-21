@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ package smoketest.actuator;
 
 import org.junit.jupiter.api.Test;
 
-import org.springframework.boot.actuate.autoconfigure.web.server.LocalManagementPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -33,7 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author HaiTao Zhang
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = { "management.endpoints.web.base-path=/", "management.server.port=0" })
+		properties = { "management.endpoints.web.base-path=/", "management.server.port=0",
+				"logging.level.org.springframework.web=trace" })
 class ManagementDifferentPortSampleActuatorApplicationTests {
 
 	@LocalManagementPort
@@ -42,7 +43,7 @@ class ManagementDifferentPortSampleActuatorApplicationTests {
 	@Test
 	void linksEndpointShouldBeAvailable() {
 		ResponseEntity<String> entity = new TestRestTemplate("user", "password")
-				.getForEntity("http://localhost:" + this.managementPort + "/", String.class);
+				.getForEntity("http://localhost:" + this.managementPort, String.class);
 		assertThat(entity.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(entity.getBody()).contains("\"_links\"");
 	}

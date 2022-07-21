@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ public final class RestTemplateExchangeTags {
 
 	/**
 	 * Creates a {@code status} {@code Tag} derived from the
-	 * {@link ClientHttpResponse#getRawStatusCode() status} of the given {@code response}.
+	 * {@link ClientHttpResponse#getStatusCode() status} of the given {@code response}.
 	 * @param response the response
 	 * @return the status tag
 	 */
@@ -97,7 +97,7 @@ public final class RestTemplateExchangeTags {
 			if (response == null) {
 				return "CLIENT_ERROR";
 			}
-			return String.valueOf(response.getRawStatusCode());
+			return String.valueOf(response.getStatusCode().value());
 		}
 		catch (IOException ex) {
 			return "IO_ERROR";
@@ -105,22 +105,22 @@ public final class RestTemplateExchangeTags {
 	}
 
 	/**
-	 * Create a {@code clientName} {@code Tag} derived from the {@link URI#getHost host}
+	 * Create a {@code client.name} {@code Tag} derived from the {@link URI#getHost host}
 	 * of the {@link HttpRequest#getURI() URI} of the given {@code request}.
 	 * @param request the request
-	 * @return the clientName tag
+	 * @return the client.name tag
 	 */
 	public static Tag clientName(HttpRequest request) {
 		String host = request.getURI().getHost();
 		if (host == null) {
 			host = "none";
 		}
-		return Tag.of("clientName", host);
+		return Tag.of("client.name", host);
 	}
 
 	/**
 	 * Creates an {@code outcome} {@code Tag} derived from the
-	 * {@link ClientHttpResponse#getRawStatusCode() status} of the given {@code response}.
+	 * {@link ClientHttpResponse#getStatusCode() status} of the given {@code response}.
 	 * @param response the response
 	 * @return the outcome tag
 	 * @since 2.2.0
@@ -128,7 +128,7 @@ public final class RestTemplateExchangeTags {
 	public static Tag outcome(ClientHttpResponse response) {
 		try {
 			if (response != null) {
-				return Outcome.forStatus(response.getRawStatusCode()).asTag();
+				return Outcome.forStatus(response.getStatusCode().value()).asTag();
 			}
 		}
 		catch (IOException ex) {

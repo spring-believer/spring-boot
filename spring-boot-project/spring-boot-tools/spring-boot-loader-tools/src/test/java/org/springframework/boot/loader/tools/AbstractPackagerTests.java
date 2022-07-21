@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ abstract class AbstractPackagerTests<P extends Packager> {
 	protected TestJarFile testJarFile;
 
 	@BeforeEach
-	void setup() throws IOException {
+	void setup() {
 		this.testJarFile = new TestJarFile(this.tempDir);
 	}
 
@@ -485,6 +485,18 @@ abstract class AbstractPackagerTests<P extends Packager> {
 	}
 
 	@Test
+	void metaInfServicesFilesAreMovedBeneathBootInfClassesWhenRepackaged() throws Exception {
+		this.testJarFile.addClass("A.class", ClassWithMainMethod.class);
+		File service = new File(this.tempDir, "com.example.Service");
+		service.createNewFile();
+		this.testJarFile.addFile("META-INF/services/com.example.Service", service);
+		P packager = createPackager();
+		execute(packager, NO_LIBRARIES);
+		assertThat(getPackagedEntry("META-INF/services/com.example.Service")).isNull();
+		assertThat(getPackagedEntry("BOOT-INF/classes/META-INF/services/com.example.Service")).isNotNull();
+	}
+
+	@Test
 	void allEntriesUseUnixPlatformAndUtf8NameEncoding() throws IOException {
 		this.testJarFile.addClass("A.class", ClassWithMainMethod.class);
 		P packager = createPackager();
@@ -616,7 +628,7 @@ abstract class AbstractPackagerTests<P extends Packager> {
 		return new Library(null, file, scope, null, unpackRequired, false, included);
 	}
 
-	protected final P createPackager() throws IOException {
+	protected final P createPackager() {
 		return createPackager(this.testJarFile.getFile());
 	}
 

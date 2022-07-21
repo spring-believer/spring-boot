@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,23 +96,10 @@ public abstract class Packager {
 	 * @param source the source archive file to package
 	 */
 	protected Packager(File source) {
-		this(source, null);
-	}
-
-	/**
-	 * Create a new {@link Packager} instance.
-	 * @param source the source archive file to package
-	 * @param layoutFactory the layout factory to use or {@code null}
-	 * @deprecated since 2.3.10 for removal in 2.5 in favor of {@link #Packager(File)} and
-	 * {@link #setLayoutFactory(LayoutFactory)}
-	 */
-	@Deprecated
-	protected Packager(File source, LayoutFactory layoutFactory) {
 		Assert.notNull(source, "Source file must not be null");
 		Assert.isTrue(source.exists() && source.isFile(),
 				() -> "Source must refer to an existing file, got " + source.getAbsolutePath());
 		this.source = source.getAbsoluteFile();
-		this.layoutFactory = layoutFactory;
 	}
 
 	/**
@@ -218,8 +205,8 @@ public abstract class Packager {
 
 	private void writeLoaderClasses(AbstractJarWriter writer) throws IOException {
 		Layout layout = getLayout();
-		if (layout instanceof CustomLoaderLayout) {
-			((CustomLoaderLayout) getLayout()).writeLoadedClasses(writer);
+		if (layout instanceof CustomLoaderLayout customLoaderLayout) {
+			customLoaderLayout.writeLoadedClasses(writer);
 		}
 		else if (layout.isExecutable()) {
 			writer.writeLoaderClasses();
@@ -236,8 +223,8 @@ public abstract class Packager {
 	}
 
 	private EntryTransformer getEntityTransformer() {
-		if (getLayout() instanceof RepackagingLayout) {
-			return new RepackagingEntryTransformer((RepackagingLayout) getLayout());
+		if (getLayout() instanceof RepackagingLayout repackagingLayout) {
+			return new RepackagingEntryTransformer(repackagingLayout);
 		}
 		return EntryTransformer.NONE;
 	}
@@ -362,8 +349,8 @@ public abstract class Packager {
 
 	private void addBootAttributesForLayout(Attributes attributes) {
 		Layout layout = getLayout();
-		if (layout instanceof RepackagingLayout) {
-			attributes.putValue(BOOT_CLASSES_ATTRIBUTE, ((RepackagingLayout) layout).getRepackagedClassesLocation());
+		if (layout instanceof RepackagingLayout repackagingLayout) {
+			attributes.putValue(BOOT_CLASSES_ATTRIBUTE, repackagingLayout.getRepackagedClassesLocation());
 		}
 		else {
 			attributes.putValue(BOOT_CLASSES_ATTRIBUTE, layout.getClassesLocation());
@@ -452,7 +439,8 @@ public abstract class Packager {
 		private boolean isTransformable(JarArchiveEntry entry) {
 			String name = entry.getName();
 			if (name.startsWith("META-INF/")) {
-				return name.equals("META-INF/aop.xml") || name.endsWith(".kotlin_module");
+				return name.equals("META-INF/aop.xml") || name.endsWith(".kotlin_module")
+						|| name.startsWith("META-INF/services/");
 			}
 			return !name.startsWith("BOOT-INF/") && !name.equals("module-info.class");
 		}
@@ -516,15 +504,15 @@ public abstract class Packager {
 					writtenPaths.add(path);
 				}
 			}
-			if (getLayout() instanceof RepackagingLayout) {
-				writeClasspathIndex(writtenPaths, (RepackagingLayout) getLayout(), writer);
-			}
+			writeClasspathIndexIfNecessary(writtenPaths, getLayout(), writer);
 		}
 
-		private void writeClasspathIndex(List<String> paths, RepackagingLayout layout, AbstractJarWriter writer)
+		private void writeClasspathIndexIfNecessary(List<String> paths, Layout layout, AbstractJarWriter writer)
 				throws IOException {
-			List<String> names = paths.stream().map((path) -> "- \"" + path + "\"").collect(Collectors.toList());
-			writer.writeIndexFile(layout.getClasspathIndexFileLocation(), names);
+			if (layout.getClasspathIndexFileLocation() != null) {
+				List<String> names = paths.stream().map((path) -> "- \"" + path + "\"").collect(Collectors.toList());
+				writer.writeIndexFile(layout.getClasspathIndexFileLocation(), names);
+			}
 		}
 
 		/**

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,8 @@ public class TestConfigurationMetadataAnnotationProcessor extends ConfigurationM
 
 	public static final String CONSTRUCTOR_BINDING_ANNOTATION = "org.springframework.boot.configurationsample.ConstructorBinding";
 
+	public static final String AUTOWIRED_ANNOTATION = "org.springframework.boot.configurationsample.Autowired";
+
 	public static final String DEFAULT_VALUE_ANNOTATION = "org.springframework.boot.configurationsample.DefaultValue";
 
 	public static final String CONTROLLER_ENDPOINT_ANNOTATION = "org.springframework.boot.configurationsample.ControllerEndpoint";
@@ -106,6 +108,11 @@ public class TestConfigurationMetadataAnnotationProcessor extends ConfigurationM
 	}
 
 	@Override
+	protected String autowiredAnnotation() {
+		return AUTOWIRED_ANNOTATION;
+	}
+
+	@Override
 	protected String defaultValueAnnotation() {
 		return DEFAULT_VALUE_ANNOTATION;
 	}
@@ -127,8 +134,8 @@ public class TestConfigurationMetadataAnnotationProcessor extends ConfigurationM
 	}
 
 	@Override
-	protected ConfigurationMetadata writeMetaData() throws Exception {
-		super.writeMetaData();
+	protected ConfigurationMetadata writeMetadata() throws Exception {
+		super.writeMetadata();
 		try {
 			File metadataFile = new File(this.outputLocation, "META-INF/spring-configuration-metadata.json");
 			if (metadataFile.isFile()) {

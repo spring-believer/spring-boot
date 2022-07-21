@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,8 +61,8 @@ class TestRestTemplateContextCustomizer implements ContextCustomizer {
 
 	private void registerTestRestTemplate(ConfigurableApplicationContext context) {
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
-		if (beanFactory instanceof BeanDefinitionRegistry) {
-			registerTestRestTemplate((BeanDefinitionRegistry) beanFactory);
+		if (beanFactory instanceof BeanDefinitionRegistry registry) {
+			registerTestRestTemplate(registry);
 		}
 	}
 
@@ -87,8 +87,7 @@ class TestRestTemplateContextCustomizer implements ContextCustomizer {
 	 * {@link ConfigurationClassPostProcessor} and add a {@link TestRestTemplateFactory}
 	 * bean definition when a {@link TestRestTemplate} hasn't already been registered.
 	 */
-	private static class TestRestTemplateRegistrar
-			implements BeanDefinitionRegistryPostProcessor, Ordered, BeanFactoryAware {
+	static class TestRestTemplateRegistrar implements BeanDefinitionRegistryPostProcessor, Ordered, BeanFactoryAware {
 
 		private BeanFactory beanFactory;
 

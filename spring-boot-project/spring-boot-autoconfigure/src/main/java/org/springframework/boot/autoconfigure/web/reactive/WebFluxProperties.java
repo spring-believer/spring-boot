@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,6 @@ public class WebFluxProperties {
 
 	private final Format format = new Format();
 
-	private final Session session = new Session();
-
 	/**
 	 * Path pattern used for static resources.
 	 */
@@ -51,7 +49,10 @@ public class WebFluxProperties {
 	}
 
 	private String cleanBasePath(String basePath) {
-		String candidate = StringUtils.trimWhitespace(basePath);
+		String candidate = null;
+		if (StringUtils.hasLength(basePath)) {
+			candidate = basePath.strip();
+		}
 		if (StringUtils.hasText(candidate)) {
 			if (!candidate.startsWith("/")) {
 				candidate = "/" + candidate;
@@ -67,10 +68,6 @@ public class WebFluxProperties {
 		return this.format;
 	}
 
-	public Session getSession() {
-		return this.session;
-	}
-
 	public String getStaticPathPattern() {
 		return this.staticPathPattern;
 	}
@@ -82,17 +79,17 @@ public class WebFluxProperties {
 	public static class Format {
 
 		/**
-		 * Date format to use, for example `dd/MM/yyyy`.
+		 * Date format to use, for example 'dd/MM/yyyy'.
 		 */
 		private String date;
 
 		/**
-		 * Time format to use, for example `HH:mm:ss`.
+		 * Time format to use, for example 'HH:mm:ss'.
 		 */
 		private String time;
 
 		/**
-		 * Date-time format to use, for example `yyyy-MM-dd HH:mm:ss`.
+		 * Date-time format to use, for example 'yyyy-MM-dd HH:mm:ss'.
 		 */
 		private String dateTime;
 
@@ -118,64 +115,6 @@ public class WebFluxProperties {
 
 		public void setDateTime(String dateTime) {
 			this.dateTime = dateTime;
-		}
-
-	}
-
-	public static class Session {
-
-		private final Cookie cookie = new Cookie();
-
-		public Cookie getCookie() {
-			return this.cookie;
-		}
-
-	}
-
-	public static class Cookie {
-
-		/**
-		 * SameSite attribute value for session Cookies.
-		 */
-		private SameSite sameSite = SameSite.LAX;
-
-		public SameSite getSameSite() {
-			return this.sameSite;
-		}
-
-		public void setSameSite(SameSite sameSite) {
-			this.sameSite = sameSite;
-		}
-
-	}
-
-	public enum SameSite {
-
-		/**
-		 * Cookies are sent in both first-party and cross-origin requests.
-		 */
-		NONE("None"),
-
-		/**
-		 * Cookies are sent in a first-party context, also when following a link to the
-		 * origin site.
-		 */
-		LAX("Lax"),
-
-		/**
-		 * Cookies are only sent in a first-party context (i.e. not when following a link
-		 * to the origin site).
-		 */
-		STRICT("Strict");
-
-		private final String attribute;
-
-		SameSite(String attribute) {
-			this.attribute = attribute;
-		}
-
-		public String attribute() {
-			return this.attribute;
 		}
 
 	}

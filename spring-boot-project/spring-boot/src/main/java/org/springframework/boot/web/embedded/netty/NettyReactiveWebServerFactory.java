@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,7 +100,8 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 	}
 
 	/**
-	 * Add {@link NettyServerCustomizer}s that should applied while building the server.
+	 * Add {@link NettyServerCustomizer}s that should be applied while building the
+	 * server.
 	 * @param serverCustomizers the customizers to add
 	 */
 	public void addServerCustomizers(NettyServerCustomizer... serverCustomizers) {
@@ -178,7 +179,8 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 
 	@SuppressWarnings("deprecation")
 	private HttpServer customizeSslConfiguration(HttpServer httpServer) {
-		SslServerCustomizer sslServerCustomizer = new SslServerCustomizer(getSsl(), getHttp2(), getSslStoreProvider());
+		SslServerCustomizer sslServerCustomizer = new SslServerCustomizer(getSsl(), getHttp2(),
+				getOrCreateSslStoreProvider());
 		return sslServerCustomizer.apply(httpServer);
 	}
 

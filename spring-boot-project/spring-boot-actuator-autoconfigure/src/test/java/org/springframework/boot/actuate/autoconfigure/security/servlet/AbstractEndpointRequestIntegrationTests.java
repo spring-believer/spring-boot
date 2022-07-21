@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,15 @@
 
 package org.springframework.boot.actuate.autoconfigure.security.servlet;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.function.Supplier;
 
-import org.jolokia.http.AgentServlet;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.autoconfigure.endpoint.EndpointAutoConfiguration;
@@ -40,7 +44,6 @@ import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebSe
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 /**
@@ -73,7 +76,7 @@ abstract class AbstractEndpointRequestIntegrationTests {
 		getContextRunner().run((context) -> {
 			WebTestClient webTestClient = getWebTestClient(context);
 			webTestClient.get().uri("/actuator").exchange().expectStatus().isOk();
-			webTestClient.get().uri("/actuator/").exchange().expectStatus().isOk();
+			webTestClient.get().uri("/actuator/").exchange().expectStatus().isNotFound();
 		});
 	}
 
@@ -159,7 +162,7 @@ abstract class AbstractEndpointRequestIntegrationTests {
 
 		@Override
 		public EndpointServlet get() {
-			return new EndpointServlet(AgentServlet.class);
+			return new EndpointServlet(ExampleServlet.class);
 		}
 
 	}
@@ -168,8 +171,9 @@ abstract class AbstractEndpointRequestIntegrationTests {
 	static class SecurityConfiguration {
 
 		@Bean
-		WebSecurityConfigurerAdapter webSecurityConfigurerAdapter() {
-			return new WebSecurityConfigurerAdapter() {
+		@SuppressWarnings("deprecation")
+		org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter webSecurityConfigurerAdapter() {
+			return new org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter() {
 
 				@Override
 				protected void configure(HttpSecurity http) throws Exception {
@@ -183,6 +187,14 @@ abstract class AbstractEndpointRequestIntegrationTests {
 				}
 
 			};
+		}
+
+	}
+
+	static class ExampleServlet extends HttpServlet {
+
+		@Override
+		protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		}
 
 	}

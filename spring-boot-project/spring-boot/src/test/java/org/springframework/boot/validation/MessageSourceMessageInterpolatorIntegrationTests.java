@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Supplier;
 
-import javax.validation.ConstraintViolation;
-import javax.validation.Validator;
-import javax.validation.constraints.NotNull;
-
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -40,8 +40,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * @author Dmytro Nosan
  */
 class MessageSourceMessageInterpolatorIntegrationTests {
-
-	private final Validator validator = buildValidator();
 
 	@NotNull
 	private String defaultMessage;
@@ -117,19 +115,22 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 	}
 
 	private List<String> validate(String property) {
-		List<String> messages = new ArrayList<>();
-		Set<ConstraintViolation<Object>> constraints = this.validator.validateProperty(this, property);
-		for (ConstraintViolation<Object> constraint : constraints) {
-			messages.add(constraint.getMessage());
-		}
-		return messages;
+		return withEnglishLocale(() -> {
+			Validator validator = buildValidator();
+			List<String> messages = new ArrayList<>();
+			Set<ConstraintViolation<Object>> constraints = validator.validateProperty(this, property);
+			for (ConstraintViolation<Object> constraint : constraints) {
+				messages.add(constraint.getMessage());
+			}
+			return messages;
+		});
 	}
 
 	private static Validator buildValidator() {
 		Locale locale = LocaleContextHolder.getLocale();
 		StaticMessageSource messageSource = new StaticMessageSource();
-		messageSource.addMessage("blank", locale, "{null} or {javax.validation.constraints.NotBlank.message}");
-		messageSource.addMessage("null", locale, "{javax.validation.constraints.NotNull.message}");
+		messageSource.addMessage("blank", locale, "{null} or {jakarta.validation.constraints.NotBlank.message}");
+		messageSource.addMessage("null", locale, "{jakarta.validation.constraints.NotNull.message}");
 		messageSource.addMessage("recursion", locale, "{middle}");
 		messageSource.addMessage("middle", locale, "{recursion}");
 		MessageInterpolatorFactory messageInterpolatorFactory = new MessageInterpolatorFactory(messageSource);
@@ -137,6 +138,17 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 			validatorFactory.setMessageInterpolator(messageInterpolatorFactory.getObject());
 			validatorFactory.afterPropertiesSet();
 			return validatorFactory.getValidator();
+		}
+	}
+
+	private static <T> T withEnglishLocale(Supplier<T> supplier) {
+		Locale defaultLocale = Locale.getDefault();
+		try {
+			Locale.setDefault(Locale.ENGLISH);
+			return supplier.get();
+		}
+		finally {
+			Locale.setDefault(defaultLocale);
 		}
 	}
 

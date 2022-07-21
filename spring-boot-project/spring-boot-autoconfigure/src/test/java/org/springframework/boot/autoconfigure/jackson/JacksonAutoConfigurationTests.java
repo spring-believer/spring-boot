@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,11 +47,14 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.util.StdDateFormat;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
 import org.springframework.boot.jackson.JsonComponent;
+import org.springframework.boot.jackson.JsonMixinModule;
 import org.springframework.boot.jackson.JsonObjectSerializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -88,6 +91,16 @@ class JacksonAutoConfigurationTests {
 					ObjectMapper mapper = context.getBean(ObjectMapper.class);
 					assertThat(mapper.writeValueAsString(new Foo())).isEqualTo("{\"foo\":\"bar\"}");
 				});
+	}
+
+	@Test
+	void jsonMixinModuleShouldBeAutoConfiguredWithBasePackages() {
+		this.contextRunner.withUserConfiguration(MixinConfiguration.class).run((context) -> {
+			assertThat(context).hasSingleBean(JsonMixinModule.class);
+			JsonMixinModule module = context.getBean(JsonMixinModule.class);
+			assertThat(module).extracting("basePackages", InstanceOfAssertFactories.list(String.class))
+					.containsExactly(MixinConfiguration.class.getPackage().getName());
+		});
 	}
 
 	@Test
@@ -196,10 +209,11 @@ class JacksonAutoConfigurationTests {
 				.run((context) -> {
 					ObjectMapper mapper = context.getBean(ObjectMapper.class);
 					assertThat(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS.enabledByDefault()).isFalse();
-					assertThat(mapper.getSerializationConfig()
-							.hasMapperFeatures(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS.getMask())).isTrue();
-					assertThat(mapper.getDeserializationConfig()
-							.hasMapperFeatures(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS.getMask())).isTrue();
+
+					assertThat(mapper.getSerializationConfig().isEnabled(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS))
+							.isTrue();
+					assertThat(mapper.getDeserializationConfig().isEnabled(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS))
+							.isTrue();
 				});
 	}
 
@@ -208,10 +222,8 @@ class JacksonAutoConfigurationTests {
 		this.contextRunner.withPropertyValues("spring.jackson.mapper.use_annotations:false").run((context) -> {
 			ObjectMapper mapper = context.getBean(ObjectMapper.class);
 			assertThat(MapperFeature.USE_ANNOTATIONS.enabledByDefault()).isTrue();
-			assertThat(mapper.getDeserializationConfig().hasMapperFeatures(MapperFeature.USE_ANNOTATIONS.getMask()))
-					.isFalse();
-			assertThat(mapper.getSerializationConfig().hasMapperFeatures(MapperFeature.USE_ANNOTATIONS.getMask()))
-					.isFalse();
+			assertThat(mapper.getDeserializationConfig().isEnabled(MapperFeature.USE_ANNOTATIONS)).isFalse();
+			assertThat(mapper.getSerializationConfig().isEnabled(MapperFeature.USE_ANNOTATIONS)).isFalse();
 		});
 	}
 
@@ -629,6 +641,11 @@ class JacksonAutoConfigurationTests {
 		void setBirthDate(Date birthDate) {
 			this.birthDate = birthDate;
 		}
+
+	}
+
+	@AutoConfigurationPackage
+	static class MixinConfiguration {
 
 	}
 

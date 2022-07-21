@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package org.springframework.boot.context.event;
+
+import java.time.Duration;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -46,6 +48,7 @@ import org.springframework.util.ErrorHandler;
  * @author Andy Wilkinson
  * @author Artsiom Yudovin
  * @author Brian Clozel
+ * @author Chris Bono
  * @since 1.0.0
  */
 public class EventPublishingRunListener implements SpringApplicationRunListener, Ordered {
@@ -92,8 +95,8 @@ public class EventPublishingRunListener implements SpringApplicationRunListener,
 	@Override
 	public void contextLoaded(ConfigurableApplicationContext context) {
 		for (ApplicationListener<?> listener : this.application.getListeners()) {
-			if (listener instanceof ApplicationContextAware) {
-				((ApplicationContextAware) listener).setApplicationContext(context);
+			if (listener instanceof ApplicationContextAware contextAware) {
+				contextAware.setApplicationContext(context);
 			}
 			context.addApplicationListener(listener);
 		}
@@ -101,14 +104,14 @@ public class EventPublishingRunListener implements SpringApplicationRunListener,
 	}
 
 	@Override
-	public void started(ConfigurableApplicationContext context) {
-		context.publishEvent(new ApplicationStartedEvent(this.application, this.args, context));
+	public void started(ConfigurableApplicationContext context, Duration timeTaken) {
+		context.publishEvent(new ApplicationStartedEvent(this.application, this.args, context, timeTaken));
 		AvailabilityChangeEvent.publish(context, LivenessState.CORRECT);
 	}
 
 	@Override
-	public void running(ConfigurableApplicationContext context) {
-		context.publishEvent(new ApplicationReadyEvent(this.application, this.args, context));
+	public void ready(ConfigurableApplicationContext context, Duration timeTaken) {
+		context.publishEvent(new ApplicationReadyEvent(this.application, this.args, context, timeTaken));
 		AvailabilityChangeEvent.publish(context, ReadinessState.ACCEPTING_TRAFFIC);
 	}
 
@@ -123,9 +126,8 @@ public class EventPublishingRunListener implements SpringApplicationRunListener,
 		else {
 			// An inactive context may not have a multicaster so we use our multicaster to
 			// call all of the context's listeners instead
-			if (context instanceof AbstractApplicationContext) {
-				for (ApplicationListener<?> listener : ((AbstractApplicationContext) context)
-						.getApplicationListeners()) {
+			if (context instanceof AbstractApplicationContext abstractApplicationContext) {
+				for (ApplicationListener<?> listener : abstractApplicationContext.getApplicationListeners()) {
 					this.initialMulticaster.addApplicationListener(listener);
 				}
 			}

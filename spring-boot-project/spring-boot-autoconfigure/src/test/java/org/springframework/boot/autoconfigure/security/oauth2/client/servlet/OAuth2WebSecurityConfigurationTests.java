@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.servlet.Filter;
-
+import jakarta.servlet.Filter;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.test.context.FilteredClassLoader;
@@ -34,7 +33,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.config.BeanIds;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.oauth2.client.InMemoryOAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -231,7 +229,9 @@ class OAuth2WebSecurityConfigurationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(ClientRegistrationRepositoryConfiguration.class)
-	static class TestWebSecurityConfigurerConfig extends WebSecurityConfigurerAdapter {
+	@SuppressWarnings("deprecation")
+	static class TestWebSecurityConfigurerConfig
+			extends org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter {
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,9 +67,9 @@ import org.springframework.util.StringUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.contentOf;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link LogbackLoggingSystem}.
@@ -82,6 +82,7 @@ import static org.mockito.Mockito.verify;
  * @author Vedran Pavic
  * @author Robert Thornton
  * @author Eddú Meléndez
+ * @author Scott Frederick
  */
 @ExtendWith(OutputCaptureExtension.class)
 class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
@@ -539,35 +540,42 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 		initialize(this.initializationContext, null, null);
 		this.loggingSystem.beforeInitialize();
 		initialize(this.initializationContext, null, null);
-		verify(listener, times(1)).onReset(loggerContext);
+		then(listener).should().onReset(loggerContext);
 		this.loggingSystem.cleanUp();
 		loggerContext.addListener(listener);
 		this.loggingSystem.beforeInitialize();
 		initialize(this.initializationContext, null, null);
-		verify(listener, times(2)).onReset(loggerContext);
+		then(listener).should(times(2)).onReset(loggerContext);
+	}
+
+	@Test
+	void testDateformatPatternDefault(CapturedOutput output) {
+		LoggingInitializationContext loggingInitializationContext = new LoggingInitializationContext(this.environment);
+		initialize(loggingInitializationContext, null, null);
+		this.logger.info("Hello world");
+		assertThat(getLineWithText(output, "Hello world"))
+				.containsPattern("\\d{4}-\\d{2}\\-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}([-+]\\d{2}:\\d{2}|Z)");
 	}
 
 	@Test
 	void testDateformatPatternProperty(CapturedOutput output) {
-		this.environment.setProperty("logging.pattern.dateformat", "yyyy-MM-dd'T'hh:mm:ss.SSSZ");
+		this.environment.setProperty("logging.pattern.dateformat", "dd-MM-yyyy");
 		new LoggingSystemProperties(this.environment).apply();
 		LoggingInitializationContext loggingInitializationContext = new LoggingInitializationContext(this.environment);
 		initialize(loggingInitializationContext, null, null);
 		this.logger.info("Hello world");
-		assertThat(getLineWithText(output, "Hello world"))
-				.containsPattern("\\d{4}-\\d{2}\\-\\d{2}T\\d{2}:\\d{2}:\\d{2}");
+		assertThat(getLineWithText(output, "Hello world")).containsPattern("\\d{2}-\\d{2}-\\d{4}\\s");
 	}
 
 	@Test // gh-24835
 	void testDateformatPatternPropertyDirect(CapturedOutput output) {
-		this.environment.setProperty("logging.pattern.dateformat", "yyyy'T'hh:mm:ss.SSSZ");
+		this.environment.setProperty("logging.pattern.dateformat", "yyyy");
 		new LoggingSystemProperties(this.environment).apply();
-		this.environment.setProperty("logging.pattern.dateformat", "yyyy-MM-dd'T'hh:mm:ss.SSSZ");
+		this.environment.setProperty("logging.pattern.dateformat", "dd-MM-yyyy");
 		LoggingInitializationContext loggingInitializationContext = new LoggingInitializationContext(this.environment);
 		initialize(loggingInitializationContext, null, null);
 		this.logger.info("Hello world");
-		assertThat(getLineWithText(output, "Hello world"))
-				.containsPattern("\\d{4}-\\d{2}\\-\\d{2}T\\d{2}:\\d{2}:\\d{2}");
+		assertThat(getLineWithText(output, "Hello world")).containsPattern("\\d{2}-\\d{2}-\\d{4}\\s");
 	}
 
 	@Test

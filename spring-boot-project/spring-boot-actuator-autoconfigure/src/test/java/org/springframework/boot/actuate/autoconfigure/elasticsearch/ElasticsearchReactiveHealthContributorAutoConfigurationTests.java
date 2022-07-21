@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +20,17 @@ import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.autoconfigure.health.HealthContributorAutoConfiguration;
 import org.springframework.boot.actuate.elasticsearch.ElasticsearchReactiveHealthIndicator;
-import org.springframework.boot.actuate.elasticsearch.ElasticsearchRestHealthIndicator;
+import org.springframework.boot.actuate.elasticsearch.ElasticsearchRestClientHealthIndicator;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.data.elasticsearch.ReactiveElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.autoconfigure.elasticsearch.ReactiveElasticsearchClientAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link ElasticSearchReactiveHealthContributorAutoConfiguration}.
+ * Tests for {@link ElasticsearchReactiveHealthContributorAutoConfiguration}.
  *
  * @author Aleksander Lech
  */
@@ -38,9 +38,8 @@ class ElasticsearchReactiveHealthContributorAutoConfigurationTests {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(ElasticsearchDataAutoConfiguration.class,
-					ReactiveElasticsearchRestClientAutoConfiguration.class,
-					ElasticsearchRestClientAutoConfiguration.class,
-					ElasticSearchReactiveHealthContributorAutoConfiguration.class,
+					ReactiveElasticsearchClientAutoConfiguration.class, ElasticsearchRestClientAutoConfiguration.class,
+					ElasticsearchReactiveHealthContributorAutoConfiguration.class,
 					HealthContributorAutoConfiguration.class));
 
 	@Test
@@ -52,10 +51,10 @@ class ElasticsearchReactiveHealthContributorAutoConfigurationTests {
 	@Test
 	void runWithRegularIndicatorShouldOnlyCreateReactiveIndicator() {
 		this.contextRunner
-				.withConfiguration(AutoConfigurations.of(ElasticSearchRestHealthContributorAutoConfiguration.class))
+				.withConfiguration(AutoConfigurations.of(ElasticsearchRestHealthContributorAutoConfiguration.class))
 				.run((context) -> assertThat(context).hasSingleBean(ElasticsearchReactiveHealthIndicator.class)
 						.hasBean("elasticsearchHealthContributor")
-						.doesNotHaveBean(ElasticsearchRestHealthIndicator.class));
+						.doesNotHaveBean(ElasticsearchRestClientHealthIndicator.class));
 	}
 
 	@Test

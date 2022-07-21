@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -236,7 +236,35 @@ public final class DataSourceBuilder<T extends DataSource> {
 				throw new IllegalStateException("Unable to unwrap embedded database", ex);
 			}
 		}
-		return new DataSourceBuilder<>(dataSource);
+		try {
+			while (dataSource.isWrapperFor(DataSource.class)) {
+				DataSource unwrapped = dataSource.unwrap(DataSource.class);
+				if (unwrapped == dataSource) {
+					break;
+				}
+				dataSource = unwrapped;
+			}
+		}
+		catch (SQLException ex) {
+			// Try to continue with the existing, potentially still wrapped, DataSource
+		}
+		return new DataSourceBuilder<>(unwrap(dataSource));
+	}
+
+	private static DataSource unwrap(DataSource dataSource) {
+		try {
+			while (dataSource.isWrapperFor(DataSource.class)) {
+				DataSource unwrapped = dataSource.unwrap(DataSource.class);
+				if (unwrapped == dataSource) {
+					return unwrapped;
+				}
+				dataSource = unwrapped;
+			}
+		}
+		catch (SQLException ex) {
+			// Try to continue with the existing, potentially still wrapped, DataSource
+		}
+		return dataSource;
 	}
 
 	/**
@@ -398,8 +426,7 @@ public final class DataSourceBuilder<T extends DataSource> {
 				Class<T> dataSourceType) {
 			MappedDataSourceProperties<T> result = null;
 			result = lookup(classLoader, dataSourceType, result,
-					"org.springframework.jdbc.datasource.SimpleDriverDataSource",
-					() -> new SimpleDataSourceProperties());
+					"org.springframework.jdbc.datasource.SimpleDriverDataSource", SimpleDataSourceProperties::new);
 			result = lookup(classLoader, dataSourceType, result, "oracle.jdbc.datasource.OracleDataSource",
 					OracleDataSourceProperties::new);
 			result = lookup(classLoader, dataSourceType, result, "org.h2.jdbcx.JdbcDataSource",
@@ -646,7 +673,7 @@ public final class DataSourceBuilder<T extends DataSource> {
 			add(DataSourceProperty.DRIVER_CLASS_NAME, PoolDataSource::getConnectionFactoryClassName,
 					PoolDataSource::setConnectionFactoryClassName);
 			add(DataSourceProperty.USERNAME, PoolDataSource::getUser, PoolDataSource::setUser);
-			add(DataSourceProperty.PASSWORD, PoolDataSource::getPassword, PoolDataSource::setPassword);
+			add(DataSourceProperty.PASSWORD, null, PoolDataSource::setPassword);
 		}
 
 	}
@@ -660,7 +687,7 @@ public final class DataSourceBuilder<T extends DataSource> {
 		SimpleDataSourceProperties() {
 			add(DataSourceProperty.URL, SimpleDriverDataSource::getUrl, SimpleDriverDataSource::setUrl);
 			add(DataSourceProperty.DRIVER_CLASS_NAME, Class.class, (dataSource) -> dataSource.getDriver().getClass(),
-					(dataSource, driverClass) -> dataSource.setDriverClass(driverClass));
+					SimpleDriverDataSource::setDriverClass);
 			add(DataSourceProperty.USERNAME, SimpleDriverDataSource::getUsername, SimpleDriverDataSource::setUsername);
 			add(DataSourceProperty.PASSWORD, SimpleDriverDataSource::getPassword, SimpleDriverDataSource::setPassword);
 		}

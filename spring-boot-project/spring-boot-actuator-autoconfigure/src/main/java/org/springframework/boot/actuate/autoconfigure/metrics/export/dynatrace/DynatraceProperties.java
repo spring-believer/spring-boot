@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.springframework.boot.context.properties.DeprecatedConfigurationProper
  * @author Georg Pirklbauer
  * @since 2.1.0
  */
-@ConfigurationProperties(prefix = "management.metrics.export.dynatrace")
+@ConfigurationProperties(prefix = "management.dynatrace.metrics.export")
 public class DynatraceProperties extends StepRegistryProperties {
 
 	private final V1 v1 = new V1();
@@ -43,7 +43,7 @@ public class DynatraceProperties extends StepRegistryProperties {
 	private String apiToken;
 
 	/**
-	 * URI to ship metrics to. Should be used for SaaS, self managed instances or to
+	 * URI to ship metrics to. Should be used for SaaS, self-managed instances or to
 	 * en-route through an internal proxy.
 	 */
 	private String uri;
@@ -57,7 +57,7 @@ public class DynatraceProperties extends StepRegistryProperties {
 	}
 
 	@Deprecated
-	@DeprecatedConfigurationProperty(replacement = "management.metrics.export.dynatrace.v1.device-id")
+	@DeprecatedConfigurationProperty(replacement = "management.dynatrace.metrics.export.v1.device-id")
 	public String getDeviceId() {
 		return this.v1.getDeviceId();
 	}
@@ -68,7 +68,7 @@ public class DynatraceProperties extends StepRegistryProperties {
 	}
 
 	@Deprecated
-	@DeprecatedConfigurationProperty(replacement = "management.metrics.export.dynatrace.v1.technology-type")
+	@DeprecatedConfigurationProperty(replacement = "management.dynatrace.metrics.export.v1.technology-type")
 	public String getTechnologyType() {
 		return this.v1.getTechnologyType();
 	}
@@ -87,7 +87,7 @@ public class DynatraceProperties extends StepRegistryProperties {
 	}
 
 	@Deprecated
-	@DeprecatedConfigurationProperty(replacement = "management.metrics.export.dynatrace.v1.group")
+	@DeprecatedConfigurationProperty(replacement = "management.dynatrace.metrics.export.v1.group")
 	public String getGroup() {
 		return this.v1.getGroup();
 	}
@@ -168,6 +168,12 @@ public class DynatraceProperties extends StepRegistryProperties {
 		 */
 		private String metricKeyPrefix;
 
+		/**
+		 * Whether to fall back to the built-in micrometer instruments for Timer and
+		 * DistributionSummary.
+		 */
+		private boolean useDynatraceSummaryInstruments = true;
+
 		public Map<String, String> getDefaultDimensions() {
 			return this.defaultDimensions;
 		}
@@ -190,6 +196,14 @@ public class DynatraceProperties extends StepRegistryProperties {
 
 		public void setMetricKeyPrefix(String metricKeyPrefix) {
 			this.metricKeyPrefix = metricKeyPrefix;
+		}
+
+		public boolean isUseDynatraceSummaryInstruments() {
+			return this.useDynatraceSummaryInstruments;
+		}
+
+		public void setUseDynatraceSummaryInstruments(boolean useDynatraceSummaryInstruments) {
+			this.useDynatraceSummaryInstruments = useDynatraceSummaryInstruments;
 		}
 
 	}

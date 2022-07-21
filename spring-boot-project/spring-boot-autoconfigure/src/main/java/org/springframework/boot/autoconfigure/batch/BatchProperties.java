@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.springframework.boot.autoconfigure.batch;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 import org.springframework.boot.sql.init.DatabaseInitializationMode;
 
 /**
@@ -36,56 +35,6 @@ public class BatchProperties {
 
 	private final Jdbc jdbc = new Jdbc();
 
-	/**
-	 * Return the datasource schema.
-	 * @return the schema
-	 * @deprecated since 2.5.0 for removal in 2.7.0 in favor of {@link Jdbc#getSchema()}
-	 */
-	@Deprecated
-	@DeprecatedConfigurationProperty(replacement = "spring.batch.jdbc.schema")
-	public String getSchema() {
-		return this.jdbc.getSchema();
-	}
-
-	@Deprecated
-	public void setSchema(String schema) {
-		this.jdbc.setSchema(schema);
-	}
-
-	/**
-	 * Return the table prefix.
-	 * @return the table prefix
-	 * @deprecated since 2.5.0 for removal in 2.7.0 in favor of
-	 * {@link Jdbc#getTablePrefix()}
-	 */
-	@Deprecated
-	@DeprecatedConfigurationProperty(replacement = "spring.batch.jdbc.table-prefix")
-	public String getTablePrefix() {
-		return this.jdbc.getTablePrefix();
-	}
-
-	@Deprecated
-	public void setTablePrefix(String tablePrefix) {
-		this.jdbc.setTablePrefix(tablePrefix);
-	}
-
-	/**
-	 * Return whether the schema should be initialized.
-	 * @return the initialization mode
-	 * @deprecated since 2.5.0 for removal in 2.7.0 in favor of
-	 * {@link Jdbc#getInitializeSchema()}
-	 */
-	@Deprecated
-	@DeprecatedConfigurationProperty(replacement = "spring.batch.jdbc.initialize-schema")
-	public DatabaseInitializationMode getInitializeSchema() {
-		return this.jdbc.getInitializeSchema();
-	}
-
-	@Deprecated
-	public void setInitializeSchema(DatabaseInitializationMode initializeSchema) {
-		this.jdbc.setInitializeSchema(initializeSchema);
-	}
-
 	public Job getJob() {
 		return this.job;
 	}
@@ -97,17 +46,17 @@ public class BatchProperties {
 	public static class Job {
 
 		/**
-		 * Comma-separated list of job names to execute on startup (for instance,
-		 * `job1,job2`). By default, all Jobs found in the context are executed.
+		 * Job name to execute on startup. Must be specified if multiple Jobs are found in
+		 * the context.
 		 */
-		private String names = "";
+		private String name = "";
 
-		public String getNames() {
-			return this.names;
+		public String getName() {
+			return this.name;
 		}
 
-		public void setNames(String names) {
-			this.names = names;
+		public void setName(String name) {
+			this.name = name;
 		}
 
 	}
@@ -118,9 +67,21 @@ public class BatchProperties {
 				+ "batch/core/schema-@@platform@@.sql";
 
 		/**
+		 * Transaction isolation level to use when creating job meta-data for new jobs.
+		 * Auto-detected based on whether JPA is being used or not.
+		 */
+		private Isolation isolationLevelForCreate;
+
+		/**
 		 * Path to the SQL file to use to initialize the database schema.
 		 */
 		private String schema = DEFAULT_SCHEMA_LOCATION;
+
+		/**
+		 * Platform to use in initialization scripts if the @@platform@@ placeholder is
+		 * used. Auto-detected by default.
+		 */
+		private String platform;
 
 		/**
 		 * Table prefix for all the batch meta-data tables.
@@ -132,12 +93,28 @@ public class BatchProperties {
 		 */
 		private DatabaseInitializationMode initializeSchema = DatabaseInitializationMode.EMBEDDED;
 
+		public Isolation getIsolationLevelForCreate() {
+			return this.isolationLevelForCreate;
+		}
+
+		public void setIsolationLevelForCreate(Isolation isolationLevelForCreate) {
+			this.isolationLevelForCreate = isolationLevelForCreate;
+		}
+
 		public String getSchema() {
 			return this.schema;
 		}
 
 		public void setSchema(String schema) {
 			this.schema = schema;
+		}
+
+		public String getPlatform() {
+			return this.platform;
+		}
+
+		public void setPlatform(String platform) {
+			this.platform = platform;
 		}
 
 		public String getTablePrefix() {
@@ -154,6 +131,47 @@ public class BatchProperties {
 
 		public void setInitializeSchema(DatabaseInitializationMode initializeSchema) {
 			this.initializeSchema = initializeSchema;
+		}
+
+	}
+
+	/**
+	 * Available transaction isolation levels.
+	 */
+	public enum Isolation {
+
+		/**
+		 * Use the default isolation level of the underlying datastore.
+		 */
+		DEFAULT,
+
+		/**
+		 * Indicates that dirty reads, non-repeatable reads and phantom reads can occur.
+		 */
+		READ_UNCOMMITTED,
+
+		/**
+		 * Indicates that dirty reads are prevented; non-repeatable reads and phantom
+		 * reads can occur.
+		 */
+		READ_COMMITTED,
+
+		/**
+		 * Indicates that dirty reads and non-repeatable reads are prevented; phantom
+		 * reads can occur.
+		 */
+		REPEATABLE_READ,
+
+		/**
+		 * Indicate that dirty reads, non-repeatable reads and phantom reads are
+		 * prevented.
+		 */
+		SERIALIZABLE;
+
+		private static final String PREFIX = "ISOLATION_";
+
+		String toIsolationName() {
+			return PREFIX + name();
 		}
 
 	}

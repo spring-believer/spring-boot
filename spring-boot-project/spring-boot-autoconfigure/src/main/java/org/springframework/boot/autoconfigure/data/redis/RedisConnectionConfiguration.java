@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import org.springframework.util.StringUtils;
  * @author Stephane Nicoll
  * @author Alen Turkovic
  * @author Scott Frederick
+ * @author Eddú Meléndez
  */
 abstract class RedisConnectionConfiguration {
 
@@ -47,19 +48,26 @@ abstract class RedisConnectionConfiguration {
 
 	private final RedisProperties properties;
 
+	private final RedisStandaloneConfiguration standaloneConfiguration;
+
 	private final RedisSentinelConfiguration sentinelConfiguration;
 
 	private final RedisClusterConfiguration clusterConfiguration;
 
 	protected RedisConnectionConfiguration(RedisProperties properties,
+			ObjectProvider<RedisStandaloneConfiguration> standaloneConfigurationProvider,
 			ObjectProvider<RedisSentinelConfiguration> sentinelConfigurationProvider,
 			ObjectProvider<RedisClusterConfiguration> clusterConfigurationProvider) {
 		this.properties = properties;
+		this.standaloneConfiguration = standaloneConfigurationProvider.getIfAvailable();
 		this.sentinelConfiguration = sentinelConfigurationProvider.getIfAvailable();
 		this.clusterConfiguration = clusterConfigurationProvider.getIfAvailable();
 	}
 
 	protected final RedisStandaloneConfiguration getStandaloneConfig() {
+		if (this.standaloneConfiguration != null) {
+			return this.standaloneConfiguration;
+		}
 		RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
 		if (StringUtils.hasText(this.properties.getUrl())) {
 			ConnectionInfo connectionInfo = parseUrl(this.properties.getUrl());
@@ -91,6 +99,7 @@ abstract class RedisConnectionConfiguration {
 			if (this.properties.getPassword() != null) {
 				config.setPassword(RedisPassword.of(this.properties.getPassword()));
 			}
+			config.setSentinelUsername(sentinelProperties.getUsername());
 			if (sentinelProperties.getPassword() != null) {
 				config.setSentinelPassword(RedisPassword.of(sentinelProperties.getPassword()));
 			}

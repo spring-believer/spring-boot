@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,15 +82,13 @@ import org.springframework.util.StringUtils;
  */
 public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstrapper {
 
-	private static final String[] WEB_ENVIRONMENT_CLASSES = { "javax.servlet.Servlet",
+	private static final String[] WEB_ENVIRONMENT_CLASSES = { "jakarta.servlet.Servlet",
 			"org.springframework.web.context.ConfigurableWebApplicationContext" };
 
 	private static final String REACTIVE_WEB_ENVIRONMENT_CLASS = "org.springframework."
 			+ "web.reactive.DispatcherHandler";
 
 	private static final String MVC_WEB_ENVIRONMENT_CLASS = "org.springframework.web.servlet.DispatcherServlet";
-
-	private static final String JERSEY_WEB_ENVIRONMENT_CLASS = "org.glassfish.jersey.server.ResourceConfig";
 
 	private static final String ACTIVATE_SERVLET_LISTENER = "org.springframework.test."
 			+ "context.web.ServletTestExecutionListener.activateListener";
@@ -112,8 +110,8 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 	}
 
 	@Override
-	protected Set<Class<? extends TestExecutionListener>> getDefaultTestExecutionListenerClasses() {
-		Set<Class<? extends TestExecutionListener>> listeners = super.getDefaultTestExecutionListenerClasses();
+	protected List<TestExecutionListener> getDefaultTestExecutionListeners() {
+		List<TestExecutionListener> listeners = new ArrayList<>(super.getDefaultTestExecutionListeners());
 		List<DefaultTestExecutionListenersPostProcessor> postProcessors = SpringFactoriesLoader
 				.loadFactories(DefaultTestExecutionListenersPostProcessor.class, getClass().getClassLoader());
 		for (DefaultTestExecutionListenersPostProcessor postProcessor : postProcessors) {
@@ -177,8 +175,7 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 
 	private WebApplicationType deduceWebApplicationType() {
 		if (ClassUtils.isPresent(REACTIVE_WEB_ENVIRONMENT_CLASS, null)
-				&& !ClassUtils.isPresent(MVC_WEB_ENVIRONMENT_CLASS, null)
-				&& !ClassUtils.isPresent(JERSEY_WEB_ENVIRONMENT_CLASS, null)) {
+				&& !ClassUtils.isPresent(MVC_WEB_ENVIRONMENT_CLASS, null)) {
 			return WebApplicationType.REACTIVE;
 		}
 		for (String className : WEB_ENVIRONMENT_CLASSES) {
@@ -293,8 +290,12 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 			// precedence
 			propertySourceProperties.addAll(0, Arrays.asList(properties));
 		}
-		if (getWebEnvironment(testClass) == WebEnvironment.RANDOM_PORT) {
+		WebEnvironment webEnvironment = getWebEnvironment(testClass);
+		if (webEnvironment == WebEnvironment.RANDOM_PORT) {
 			propertySourceProperties.add("server.port=0");
+		}
+		else if (webEnvironment == WebEnvironment.NONE) {
+			propertySourceProperties.add("spring.main.web-application-type=none");
 		}
 	}
 

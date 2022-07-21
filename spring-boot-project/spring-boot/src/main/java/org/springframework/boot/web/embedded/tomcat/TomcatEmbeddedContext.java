@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 
-import javax.servlet.ServletException;
-
+import jakarta.servlet.ServletException;
 import org.apache.catalina.Container;
-import org.apache.catalina.LifecycleException;
 import org.apache.catalina.Manager;
 import org.apache.catalina.Wrapper;
 import org.apache.catalina.core.StandardContext;
@@ -60,7 +58,7 @@ class TomcatEmbeddedContext extends StandardContext {
 		super.setManager(manager);
 	}
 
-	void deferredLoadOnStartup() throws LifecycleException {
+	void deferredLoadOnStartup() {
 		doWithThreadContextClassLoader(getLoader().getClassLoader(),
 				() -> getLoadOnStartupWrappers(findChildren()).forEach(this::load));
 	}
@@ -94,7 +92,7 @@ class TomcatEmbeddedContext extends StandardContext {
 	 * Some older Servlet frameworks (e.g. Struts, BIRT) use the Thread context class
 	 * loader to create servlet instances in this phase. If they do that and then try to
 	 * initialize them later the class loader may have changed, so wrap the call to
-	 * loadOnStartup in what we think its going to be the main webapp classloader at
+	 * loadOnStartup in what we think is going to be the main webapp classloader at
 	 * runtime.
 	 * @param classLoader the class loader to use
 	 * @param code the code to run

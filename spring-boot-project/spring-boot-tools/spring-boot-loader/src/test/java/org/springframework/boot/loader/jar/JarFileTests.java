@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
@@ -47,6 +48,7 @@ import java.util.zip.ZipFile;
 
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,8 +64,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIOException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link JarFile}.
@@ -241,7 +243,7 @@ class JarFileTests {
 		RandomAccessDataFile randomAccessDataFile = spy(new RandomAccessDataFile(this.rootJarFile));
 		JarFile jarFile = new JarFile(randomAccessDataFile);
 		jarFile.close();
-		verify(randomAccessDataFile).close();
+		then(randomAccessDataFile).should().close();
 	}
 
 	@Test
@@ -558,12 +560,12 @@ class JarFileTests {
 			assertThat(entry.getName()).isEqualTo("multi-release.dat");
 			InputStream inputStream = multiRelease.getInputStream(entry);
 			assertThat(inputStream.available()).isEqualTo(1);
-			assertThat(inputStream.read()).isEqualTo(getJavaVersion());
+			assertThat(inputStream.read()).isEqualTo(Runtime.version().feature());
 		}
 	}
 
 	@Test
-	void zip64JarCanBeRead() throws Exception {
+	void zip64JarThatExceedsZipEntryLimitCanBeRead() throws Exception {
 		File zip64Jar = new File(this.tempDir, "zip64.jar");
 		FileCopyUtils.copy(zip64Jar(), zip64Jar);
 		try (JarFile zip64JarFile = new JarFile(zip64Jar)) {
@@ -574,6 +576,39 @@ class JarFileTests {
 				InputStream entryInput = zip64JarFile.getInputStream(entry);
 				assertThat(entryInput).hasContent("Entry " + (i + 1));
 			}
+		}
+	}
+
+	@Test
+	void zip64JarThatExceedsZipSizeLimitCanBeRead() throws Exception {
+		Assumptions.assumeTrue(this.tempDir.getFreeSpace() > 6 * 1024 * 1024 * 1024, "Insufficient disk space");
+		File zip64Jar = new File(this.tempDir, "zip64.jar");
+		File entry = new File(this.tempDir, "entry.dat");
+		CRC32 crc32 = new CRC32();
+		try (FileOutputStream entryOut = new FileOutputStream(entry)) {
+			byte[] data = new byte[1024 * 1024];
+			new Random().nextBytes(data);
+			for (int i = 0; i < 1024; i++) {
+				entryOut.write(data);
+				crc32.update(data);
+			}
+		}
+		try (JarOutputStream jarOutput = new JarOutputStream(new FileOutputStream(zip64Jar))) {
+			for (int i = 0; i < 6; i++) {
+				JarEntry storedEntry = new JarEntry("huge-" + i);
+				storedEntry.setSize(entry.length());
+				storedEntry.setCompressedSize(entry.length());
+				storedEntry.setCrc(crc32.getValue());
+				storedEntry.setMethod(ZipEntry.STORED);
+				jarOutput.putNextEntry(storedEntry);
+				try (FileInputStream entryIn = new FileInputStream(entry)) {
+					StreamUtils.copy(entryIn, jarOutput);
+				}
+				jarOutput.closeEntry();
+			}
+		}
+		try (JarFile zip64JarFile = new JarFile(zip64Jar)) {
+			assertThat(Collections.list(zip64JarFile.entries())).hasSize(6);
 		}
 	}
 
@@ -695,16 +730,6 @@ class JarFileTests {
 
 	private void assertThatZipFileClosedIsThrownBy(ThrowingCallable throwingCallable) {
 		assertThatIllegalStateException().isThrownBy(throwingCallable).withMessage("zip file closed");
-	}
-
-	private int getJavaVersion() {
-		try {
-			Object runtimeVersion = Runtime.class.getMethod("version").invoke(null);
-			return (int) runtimeVersion.getClass().getMethod("major").invoke(runtimeVersion);
-		}
-		catch (Throwable ex) {
-			return 8;
-		}
 	}
 
 }

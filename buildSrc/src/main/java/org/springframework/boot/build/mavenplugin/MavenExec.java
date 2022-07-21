@@ -43,10 +43,10 @@ public class MavenExec extends JavaExec {
 
 	private File projectDir;
 
-	public MavenExec() throws IOException {
+	public MavenExec() {
 		setClasspath(mavenConfiguration(getProject()));
 		args("--batch-mode");
-		setMain("org.apache.maven.cli.MavenCli");
+		getMainClass().set("org.apache.maven.cli.MavenCli");
 	}
 
 	public void setProjectDir(File projectDir) {

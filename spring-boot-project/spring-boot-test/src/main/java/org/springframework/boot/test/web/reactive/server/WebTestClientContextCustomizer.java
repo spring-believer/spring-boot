@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,8 +67,8 @@ class WebTestClientContextCustomizer implements ContextCustomizer {
 
 	private void registerWebTestClient(ConfigurableApplicationContext context) {
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
-		if (beanFactory instanceof BeanDefinitionRegistry) {
-			registerWebTestClient((BeanDefinitionRegistry) beanFactory);
+		if (beanFactory instanceof BeanDefinitionRegistry registry) {
+			registerWebTestClient(registry);
 		}
 	}
 
@@ -93,8 +93,7 @@ class WebTestClientContextCustomizer implements ContextCustomizer {
 	 * {@link ConfigurationClassPostProcessor} and add a {@link WebTestClientFactory} bean
 	 * definition when a {@link WebTestClient} hasn't already been registered.
 	 */
-	private static class WebTestClientRegistrar
-			implements BeanDefinitionRegistryPostProcessor, Ordered, BeanFactoryAware {
+	static class WebTestClientRegistrar implements BeanDefinitionRegistryPostProcessor, Ordered, BeanFactoryAware {
 
 		private BeanFactory beanFactory;
 

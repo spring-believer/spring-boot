@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,11 +71,16 @@ public final class ConfigurationPropertiesBean {
 
 	private ConfigurationPropertiesBean(String name, Object instance, ConfigurationProperties annotation,
 			Bindable<?> bindTarget) {
+		this(name, instance, annotation, bindTarget, BindMethod.forType(bindTarget.getType().resolve()));
+	}
+
+	private ConfigurationPropertiesBean(String name, Object instance, ConfigurationProperties annotation,
+			Bindable<?> bindTarget, BindMethod bindMethod) {
 		this.name = name;
 		this.instance = instance;
 		this.annotation = annotation;
 		this.bindTarget = bindTarget;
-		this.bindMethod = BindMethod.forType(bindTarget.getType().resolve());
+		this.bindMethod = bindMethod;
 	}
 
 	/**
@@ -139,12 +144,16 @@ public final class ConfigurationPropertiesBean {
 	 */
 	public static Map<String, ConfigurationPropertiesBean> getAll(ApplicationContext applicationContext) {
 		Assert.notNull(applicationContext, "ApplicationContext must not be null");
-		if (applicationContext instanceof ConfigurableApplicationContext) {
-			return getAll((ConfigurableApplicationContext) applicationContext);
+		if (applicationContext instanceof ConfigurableApplicationContext configurableContext) {
+			return getAll(configurableContext);
 		}
 		Map<String, ConfigurationPropertiesBean> propertiesBeans = new LinkedHashMap<>();
-		applicationContext.getBeansWithAnnotation(ConfigurationProperties.class)
-				.forEach((beanName, bean) -> propertiesBeans.put(beanName, get(applicationContext, bean, beanName)));
+		applicationContext.getBeansWithAnnotation(ConfigurationProperties.class).forEach((beanName, bean) -> {
+			ConfigurationPropertiesBean propertiesBean = get(applicationContext, bean, beanName);
+			if (propertiesBean != null) {
+				propertiesBeans.put(beanName, propertiesBean);
+			}
+		});
 		return propertiesBeans;
 	}
 
@@ -158,7 +167,9 @@ public final class ConfigurationPropertiesBean {
 				try {
 					Object bean = beanFactory.getBean(beanName);
 					ConfigurationPropertiesBean propertiesBean = get(applicationContext, bean, beanName);
-					propertiesBeans.put(beanName, propertiesBean);
+					if (propertiesBean != null) {
+						propertiesBeans.put(beanName, propertiesBean);
+					}
 				}
 				catch (Exception ex) {
 				}
@@ -192,7 +203,7 @@ public final class ConfigurationPropertiesBean {
 	 * @param applicationContext the source application context
 	 * @param bean the bean to consider
 	 * @param beanName the bean name
-	 * @return a configuration properties bean or {@code null} if the neither the bean or
+	 * @return a configuration properties bean or {@code null} if the neither the bean nor
 	 * factory method are annotated with
 	 * {@link ConfigurationProperties @ConfigurationProperties}
 	 */
@@ -202,8 +213,8 @@ public final class ConfigurationPropertiesBean {
 	}
 
 	private static Method findFactoryMethod(ApplicationContext applicationContext, String beanName) {
-		if (applicationContext instanceof ConfigurableApplicationContext) {
-			return findFactoryMethod((ConfigurableApplicationContext) applicationContext, beanName);
+		if (applicationContext instanceof ConfigurableApplicationContext configurableContext) {
+			return findFactoryMethod(configurableContext, beanName);
 		}
 		return null;
 	}
@@ -215,8 +226,8 @@ public final class ConfigurationPropertiesBean {
 	private static Method findFactoryMethod(ConfigurableListableBeanFactory beanFactory, String beanName) {
 		if (beanFactory.containsBeanDefinition(beanName)) {
 			BeanDefinition beanDefinition = beanFactory.getMergedBeanDefinition(beanName);
-			if (beanDefinition instanceof RootBeanDefinition) {
-				Method resolvedFactoryMethod = ((RootBeanDefinition) beanDefinition).getResolvedFactoryMethod();
+			if (beanDefinition instanceof RootBeanDefinition rootBeanDefinition) {
+				Method resolvedFactoryMethod = rootBeanDefinition.getResolvedFactoryMethod();
 				if (resolvedFactoryMethod != null) {
 					return resolvedFactoryMethod;
 				}
@@ -266,6 +277,9 @@ public final class ConfigurationPropertiesBean {
 		Bindable<Object> bindTarget = Bindable.of(bindType).withAnnotations(annotations);
 		if (instance != null) {
 			bindTarget = bindTarget.withExistingValue(instance);
+		}
+		if (factory != null) {
+			return new ConfigurationPropertiesBean(name, instance, annotation, bindTarget, BindMethod.JAVA_BEAN);
 		}
 		return new ConfigurationPropertiesBean(name, instance, annotation, bindTarget);
 	}

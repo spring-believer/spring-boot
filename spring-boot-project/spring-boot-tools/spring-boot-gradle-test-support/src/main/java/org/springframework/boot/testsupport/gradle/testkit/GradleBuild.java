@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,9 +44,6 @@ import org.apache.http.conn.HttpClientConnectionManager;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.util.GradleVersion;
-import org.jetbrains.kotlin.cli.common.PropertiesKt;
-import org.jetbrains.kotlin.compilerRunner.KotlinLogger;
-import org.jetbrains.kotlin.daemon.client.KotlinCompilerClient;
 import org.jetbrains.kotlin.gradle.model.KotlinProject;
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin;
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlugin;
@@ -83,6 +80,8 @@ public class GradleBuild {
 
 	private GradleVersion expectDeprecationWarnings;
 
+	private List<String> expectedDeprecationMessages = new ArrayList<>();
+
 	private boolean configurationCache = false;
 
 	private Map<String, String> scriptProperties = new HashMap<>();
@@ -113,9 +112,10 @@ public class GradleBuild {
 				new File("build/resources/main"), new File(pathOfJarContaining(LaunchScript.class)),
 				new File(pathOfJarContaining(ClassVisitor.class)),
 				new File(pathOfJarContaining(DependencyManagementPlugin.class)),
-				new File(pathOfJarContaining(PropertiesKt.class)), new File(pathOfJarContaining(KotlinLogger.class)),
+				new File(pathOfJarContaining("org.jetbrains.kotlin.cli.common.PropertiesKt")),
+				new File(pathOfJarContaining("org.jetbrains.kotlin.compilerRunner.KotlinLogger")),
 				new File(pathOfJarContaining(KotlinPlugin.class)), new File(pathOfJarContaining(KotlinProject.class)),
-				new File(pathOfJarContaining(KotlinCompilerClient.class)),
+				new File(pathOfJarContaining("org.jetbrains.kotlin.daemon.client.KotlinCompilerClient")),
 				new File(pathOfJarContaining(KotlinCompilerPluginSupportPlugin.class)),
 				new File(pathOfJarContaining(LanguageSettings.class)),
 				new File(pathOfJarContaining(ArchiveEntry.class)), new File(pathOfJarContaining(BuildRequest.class)),
@@ -124,7 +124,19 @@ public class GradleBuild {
 				new File(pathOfJarContaining(Versioned.class)),
 				new File(pathOfJarContaining(ParameterNamesModule.class)),
 				new File(pathOfJarContaining(JsonView.class)), new File(pathOfJarContaining(Platform.class)),
-				new File(pathOfJarContaining(Toml.class)), new File(pathOfJarContaining(Lexer.class)));
+				new File(pathOfJarContaining(Toml.class)), new File(pathOfJarContaining(Lexer.class)),
+				new File(pathOfJarContaining("org.graalvm.buildtools.gradle.NativeImagePlugin")),
+				new File(pathOfJarContaining("org.graalvm.reachability.GraalVMReachabilityMetadataRepository")),
+				new File(pathOfJarContaining("org.graalvm.buildtools.utils.SharedConstants")));
+	}
+
+	private String pathOfJarContaining(String className) {
+		try {
+			return pathOfJarContaining(Class.forName(className));
+		}
+		catch (ClassNotFoundException ex) {
+			throw new IllegalArgumentException(ex);
+		}
 	}
 
 	private String pathOfJarContaining(Class<?> type) {
@@ -145,9 +157,18 @@ public class GradleBuild {
 		return this;
 	}
 
+	public GradleBuild expectDeprecationMessages(String... messages) {
+		this.expectedDeprecationMessages.addAll(Arrays.asList(messages));
+		return this;
+	}
+
 	public GradleBuild configurationCache() {
 		this.configurationCache = true;
 		return this;
+	}
+
+	public boolean isConfigurationCache() {
+		return this.configurationCache;
 	}
 
 	public GradleBuild scriptProperty(String key, String value) {
@@ -160,7 +181,13 @@ public class GradleBuild {
 			BuildResult result = prepareRunner(arguments).build();
 			if (this.expectDeprecationWarnings == null || (this.gradleVersion != null
 					&& this.expectDeprecationWarnings.compareTo(GradleVersion.version(this.gradleVersion)) > 0)) {
-				assertThat(result.getOutput()).doesNotContain("Deprecated").doesNotContain("deprecated");
+				String buildOutput = result.getOutput();
+				if (this.expectedDeprecationMessages != null) {
+					for (String message : this.expectedDeprecationMessages) {
+						buildOutput = buildOutput.replaceAll(message, "");
+					}
+				}
+				assertThat(buildOutput).doesNotContainIgnoringCase("deprecated");
 			}
 			return result;
 		}
@@ -179,16 +206,11 @@ public class GradleBuild {
 	}
 
 	public GradleRunner prepareRunner(String... arguments) throws IOException {
-		String scriptContent = FileCopyUtils.copyToString(new FileReader(this.script));
 		this.scriptProperties.put("bootVersion", getBootVersion());
 		this.scriptProperties.put("dependencyManagementPluginVersion", getDependencyManagementPluginVersion());
-		for (Entry<String, String> property : this.scriptProperties.entrySet()) {
-			scriptContent = scriptContent.replace("{" + property.getKey() + "}", property.getValue());
-		}
-		FileCopyUtils.copy(scriptContent, new FileWriter(new File(this.projectDir, "build" + this.dsl.getExtension())));
+		copyTransformedScript(this.script, new File(this.projectDir, "build" + this.dsl.getExtension()));
 		if (this.settings != null) {
-			FileCopyUtils.copy(new FileReader(this.settings),
-					new FileWriter(new File(this.projectDir, "settings.gradle")));
+			copyTransformedScript(this.settings, new File(this.projectDir, "settings.gradle"));
 		}
 		File repository = new File("src/test/resources/repository");
 		if (repository.exists()) {
@@ -214,6 +236,14 @@ public class GradleBuild {
 			allArguments.add("--configuration-cache");
 		}
 		return gradleRunner.withArguments(allArguments);
+	}
+
+	private void copyTransformedScript(String script, File destination) throws IOException {
+		String scriptContent = FileCopyUtils.copyToString(new FileReader(script));
+		for (Entry<String, String> property : this.scriptProperties.entrySet()) {
+			scriptContent = scriptContent.replace("{" + property.getKey() + "}", property.getValue());
+		}
+		FileCopyUtils.copy(scriptContent, new FileWriter(destination));
 	}
 
 	private File getTestKitDir() {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ package org.springframework.boot;
 
 import java.util.function.Supplier;
 
+import org.springframework.aot.AotDetector;
 import org.springframework.beans.BeanUtils;
-import org.springframework.boot.web.reactive.context.AnnotationConfigReactiveWebServerApplicationContext;
-import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.core.io.support.SpringFactoriesLoader;
 
 /**
  * Strategy interface for creating the {@link ConfigurableApplicationContext} used by a
@@ -43,14 +44,15 @@ public interface ApplicationContextFactory {
 	 */
 	ApplicationContextFactory DEFAULT = (webApplicationType) -> {
 		try {
-			switch (webApplicationType) {
-			case SERVLET:
-				return new AnnotationConfigServletWebServerApplicationContext();
-			case REACTIVE:
-				return new AnnotationConfigReactiveWebServerApplicationContext();
-			default:
-				return new AnnotationConfigApplicationContext();
+			for (ApplicationContextFactory candidate : SpringFactoriesLoader
+					.loadFactories(ApplicationContextFactory.class, ApplicationContextFactory.class.getClassLoader())) {
+				ConfigurableApplicationContext context = candidate.create(webApplicationType);
+				if (context != null) {
+					return context;
+				}
 			}
+			return AotDetector.useGeneratedArtifacts() ? new GenericApplicationContext()
+					: new AnnotationConfigApplicationContext();
 		}
 		catch (Exception ex) {
 			throw new IllegalStateException("Unable create a default ApplicationContext instance, "

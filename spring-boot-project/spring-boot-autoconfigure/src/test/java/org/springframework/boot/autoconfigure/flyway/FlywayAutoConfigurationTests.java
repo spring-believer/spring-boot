@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -289,53 +289,18 @@ class FlywayAutoConfigurationTests {
 	@Test
 	void changeLogDoesNotExist() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.locations:filesystem:no-such-dir").run((context) -> {
-					assertThat(context).hasFailed();
-					assertThat(context).getFailure().isInstanceOf(BeanCreationException.class);
-				});
-	}
-
-	@Test
-	@Deprecated
-	void checkLocationsAllMissing() {
-		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.locations:classpath:db/missing1,classpath:db/migration2")
+				.withPropertyValues("spring.flyway.fail-on-missing-locations=true",
+						"spring.flyway.locations:filesystem:no-such-dir")
 				.run((context) -> {
 					assertThat(context).hasFailed();
 					assertThat(context).getFailure().isInstanceOf(BeanCreationException.class);
-					assertThat(context).getFailure().hasMessageContaining("Cannot find migration scripts in");
 				});
-	}
-
-	@Test
-	@Deprecated
-	void checkLocationsAllExist() {
-		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.locations:classpath:db/changelog,classpath:db/migration")
-				.run((context) -> assertThat(context).hasNotFailed());
-	}
-
-	@Test
-	@Deprecated
-	void checkLocationsAllExistWithImplicitClasspathPrefix() {
-		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.locations:db/changelog,db/migration")
-				.run((context) -> assertThat(context).hasNotFailed());
-	}
-
-	@Test
-	@Deprecated
-	void checkLocationsAllExistWithFilesystemPrefix() {
-		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.locations:filesystem:src/test/resources/db/migration")
-				.run((context) -> assertThat(context).hasNotFailed());
 	}
 
 	@Test
 	void failOnMissingLocationsAllMissing() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.check-location=false",
-						"spring.flyway.fail-on-missing-locations=true")
+				.withPropertyValues("spring.flyway.fail-on-missing-locations=true")
 				.withPropertyValues("spring.flyway.locations:classpath:db/missing1,classpath:db/migration2")
 				.run((context) -> {
 					assertThat(context).hasFailed();
@@ -347,8 +312,7 @@ class FlywayAutoConfigurationTests {
 	@Test
 	void failOnMissingLocationsAllExist() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.check-location=false",
-						"spring.flyway.fail-on-missing-locations=true")
+				.withPropertyValues("spring.flyway.fail-on-missing-locations=true")
 				.withPropertyValues("spring.flyway.locations:classpath:db/changelog,classpath:db/migration")
 				.run((context) -> assertThat(context).hasNotFailed());
 	}
@@ -356,8 +320,7 @@ class FlywayAutoConfigurationTests {
 	@Test
 	void failOnMissingLocationsAllExistWithImplicitClasspathPrefix() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.check-location=false",
-						"spring.flyway.fail-on-missing-locations=true")
+				.withPropertyValues("spring.flyway.fail-on-missing-locations=true")
 				.withPropertyValues("spring.flyway.locations:db/changelog,db/migration")
 				.run((context) -> assertThat(context).hasNotFailed());
 	}
@@ -365,8 +328,7 @@ class FlywayAutoConfigurationTests {
 	@Test
 	void failOnMissingLocationsAllExistWithFilesystemPrefix() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.check-location=false",
-						"spring.flyway.fail-on-missing-locations=true")
+				.withPropertyValues("spring.flyway.fail-on-missing-locations=true")
 				.withPropertyValues("spring.flyway.locations:filesystem:src/test/resources/db/migration")
 				.run((context) -> assertThat(context).hasNotFailed());
 	}
@@ -499,8 +461,9 @@ class FlywayAutoConfigurationTests {
 					assertThat(context).hasSingleBean(Flyway.class);
 					Flyway flyway = context.getBean(Flyway.class);
 					assertThat(flyway.getConfiguration().getConnectRetries()).isEqualTo(5);
-					assertThat(flyway.getConfiguration().isIgnoreMissingMigrations()).isTrue();
-					assertThat(flyway.getConfiguration().isIgnorePendingMigrations()).isTrue();
+					assertThat(flyway.getConfiguration().getBaselineDescription()).isEqualTo("<< Custom baseline >>");
+					assertThat(flyway.getConfiguration().getBaselineVersion())
+							.isEqualTo(MigrationVersion.fromVersion("1"));
 				});
 	}
 
@@ -528,8 +491,8 @@ class FlywayAutoConfigurationTests {
 	void licenseKeyIsCorrectlyMapped(CapturedOutput output) {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
 				.withPropertyValues("spring.flyway.license-key=<<secret>>")
-				.run((context) -> assertThat(output).contains(
-						"Flyway Teams Edition upgrade required: licenseKey is not supported by Flyway Community Edition."));
+				.run((context) -> assertThat(output).contains("License key detected - in order to use Teams or "
+						+ "Enterprise features, download Flyway Teams Edition & Flyway Enterprise Edition"));
 	}
 
 	@Test
@@ -602,6 +565,13 @@ class FlywayAutoConfigurationTests {
 	}
 
 	@Test
+	void kerberosConfigFileIsCorrectlyMapped() {
+		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
+				.withPropertyValues("spring.flyway.kerberos-config-file=/tmp/config")
+				.run(validateFlywayTeamsPropertyOnly("kerberosConfigFile"));
+	}
+
+	@Test
 	void oracleKerberosCacheFileIsCorrectlyMapped() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
 				.withPropertyValues("spring.flyway.oracle-kerberos-cache-file=/tmp/cache")
@@ -609,17 +579,17 @@ class FlywayAutoConfigurationTests {
 	}
 
 	@Test
-	void oracleKerberosConfigFileIsCorrectlyMapped() {
-		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-				.withPropertyValues("spring.flyway.oracle-kerberos-config-file=/tmp/config")
-				.run(validateFlywayTeamsPropertyOnly("oracle.kerberosConfigFile"));
-	}
-
-	@Test
 	void outputQueryResultsIsCorrectlyMapped() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
 				.withPropertyValues("spring.flyway.output-query-results=false")
 				.run(validateFlywayTeamsPropertyOnly("outputQueryResults"));
+	}
+
+	@Test
+	void sqlServerKerberosLoginFileIsCorrectlyMapped() {
+		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
+				.withPropertyValues("spring.flyway.sql-server-kerberos-login-file=/tmp/config")
+				.run(validateFlywayTeamsPropertyOnly("sqlserver.kerberos.login.file"));
 	}
 
 	@Test
@@ -655,6 +625,24 @@ class FlywayAutoConfigurationTests {
 					BeanDefinition beanDefinition = context.getBeanFactory().getBeanDefinition("dslContext");
 					assertThat(beanDefinition.getDependsOn()).containsExactlyInAnyOrder("customFlyway");
 				});
+	}
+
+	@Test
+	void scriptPlaceholderPrefixIsCorrectlyMapped() {
+		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
+				.withPropertyValues("spring.flyway.script-placeholder-prefix=SPP")
+				.run((context) -> assertThat(
+						context.getBean(Flyway.class).getConfiguration().getScriptPlaceholderPrefix())
+								.isEqualTo("SPP"));
+	}
+
+	@Test
+	void scriptPlaceholderSuffixIsCorrectlyMapped() {
+		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
+				.withPropertyValues("spring.flyway.script-placeholder-suffix=SPS")
+				.run((context) -> assertThat(
+						context.getBean(Flyway.class).getConfiguration().getScriptPlaceholderSuffix())
+								.isEqualTo("SPS"));
 	}
 
 	private ContextConsumer<AssertableApplicationContext> validateFlywayTeamsPropertyOnly(String propertyName) {
@@ -892,13 +880,13 @@ class FlywayAutoConfigurationTests {
 		@Bean
 		@Order(1)
 		FlywayConfigurationCustomizer customizerOne() {
-			return (configuration) -> configuration.connectRetries(5).ignorePendingMigrations(true);
+			return (configuration) -> configuration.connectRetries(5).baselineVersion("1");
 		}
 
 		@Bean
 		@Order(0)
 		FlywayConfigurationCustomizer customizerTwo() {
-			return (configuration) -> configuration.connectRetries(10).ignoreMissingMigrations(true);
+			return (configuration) -> configuration.connectRetries(10).baselineDescription("<< Custom baseline >>");
 		}
 
 	}
@@ -993,11 +981,6 @@ class FlywayAutoConfigurationTests {
 		}
 
 		@Override
-		public boolean isUndo() {
-			return false;
-		}
-
-		@Override
 		public boolean canExecuteInTransaction() {
 			return true;
 		}
@@ -1005,11 +988,6 @@ class FlywayAutoConfigurationTests {
 		@Override
 		public void migrate(org.flywaydb.core.api.migration.Context context) {
 
-		}
-
-		@Override
-		public boolean isStateScript() {
-			return false;
 		}
 
 	}

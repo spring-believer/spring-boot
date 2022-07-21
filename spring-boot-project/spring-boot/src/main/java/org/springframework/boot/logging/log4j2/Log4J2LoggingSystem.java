@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -38,21 +41,27 @@ import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import org.apache.logging.log4j.core.config.ConfigurationSource;
 import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.apache.logging.log4j.core.config.composite.CompositeConfiguration;
 import org.apache.logging.log4j.core.filter.AbstractFilter;
 import org.apache.logging.log4j.core.util.NameUtil;
+import org.apache.logging.log4j.jul.Log4jBridgeHandler;
 import org.apache.logging.log4j.message.Message;
 
+import org.springframework.boot.context.properties.bind.BindResult;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.logging.AbstractLoggingSystem;
 import org.springframework.boot.logging.LogFile;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggerConfiguration;
 import org.springframework.boot.logging.LoggingInitializationContext;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.logging.LoggingSystemFactory;
-import org.springframework.boot.logging.Slf4JLoggingSystem;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.ResourceUtils;
 import org.springframework.util.StringUtils;
 
@@ -65,9 +74,13 @@ import org.springframework.util.StringUtils;
  * @author Ben Hale
  * @since 1.2.0
  */
-public class Log4J2LoggingSystem extends Slf4JLoggingSystem {
+public class Log4J2LoggingSystem extends AbstractLoggingSystem {
 
 	private static final String FILE_PROTOCOL = "file";
+
+	private static final String LOG4J_BRIDGE_HANDLER = "org.apache.logging.log4j.jul.Log4jBridgeHandler";
+
+	private static final String LOG4J_LOG_MANAGER = "org.apache.logging.log4j.jul.LogManager";
 
 	private static final LogLevels<Level> LEVELS = new LogLevels<>();
 
@@ -149,8 +162,64 @@ public class Log4J2LoggingSystem extends Slf4JLoggingSystem {
 		if (isAlreadyInitialized(loggerContext)) {
 			return;
 		}
-		super.beforeInitialize();
+		if (!configureJdkLoggingBridgeHandler()) {
+			super.beforeInitialize();
+		}
 		loggerContext.getConfiguration().addFilter(FILTER);
+	}
+
+	private boolean configureJdkLoggingBridgeHandler() {
+		try {
+			if (isJulUsingASingleConsoleHandlerAtMost() && !isLog4jLogManagerInstalled()
+					&& isLog4jBridgeHandlerAvailable()) {
+				removeDefaultRootHandler();
+				Log4jBridgeHandler.install(false, null, true);
+				return true;
+			}
+		}
+		catch (Throwable ex) {
+			// Ignore. No java.util.logging bridge is installed.
+		}
+		return false;
+	}
+
+	private boolean isJulUsingASingleConsoleHandlerAtMost() {
+		java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
+		Handler[] handlers = rootLogger.getHandlers();
+		return handlers.length == 0 || (handlers.length == 1 && handlers[0] instanceof ConsoleHandler);
+	}
+
+	private boolean isLog4jLogManagerInstalled() {
+		final String logManagerClassName = java.util.logging.LogManager.getLogManager().getClass().getName();
+		return LOG4J_LOG_MANAGER.equals(logManagerClassName);
+	}
+
+	private boolean isLog4jBridgeHandlerAvailable() {
+		return ClassUtils.isPresent(LOG4J_BRIDGE_HANDLER, getClassLoader());
+	}
+
+	private void removeLog4jBridgeHandler() {
+		removeDefaultRootHandler();
+		java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
+		for (final Handler handler : rootLogger.getHandlers()) {
+			if (handler instanceof Log4jBridgeHandler) {
+				handler.close();
+				rootLogger.removeHandler(handler);
+			}
+		}
+	}
+
+	private void removeDefaultRootHandler() {
+		try {
+			java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
+			Handler[] handlers = rootLogger.getHandlers();
+			if (handlers.length == 1 && handlers[0] instanceof ConsoleHandler) {
+				rootLogger.removeHandler(handlers[0]);
+			}
+		}
+		catch (Throwable ex) {
+			// Ignore and continue
+		}
 	}
 
 	@Override
@@ -167,31 +236,58 @@ public class Log4J2LoggingSystem extends Slf4JLoggingSystem {
 	@Override
 	protected void loadDefaults(LoggingInitializationContext initializationContext, LogFile logFile) {
 		if (logFile != null) {
-			loadConfiguration(getPackagedConfigFile("log4j2-file.xml"), logFile);
+			loadConfiguration(getPackagedConfigFile("log4j2-file.xml"), logFile, getOverrides(initializationContext));
 		}
 		else {
-			loadConfiguration(getPackagedConfigFile("log4j2.xml"), logFile);
+			loadConfiguration(getPackagedConfigFile("log4j2.xml"), logFile, getOverrides(initializationContext));
 		}
+	}
+
+	private List<String> getOverrides(LoggingInitializationContext initializationContext) {
+		BindResult<List<String>> overrides = Binder.get(initializationContext.getEnvironment())
+				.bind("logging.log4j2.config.override", Bindable.listOf(String.class));
+		return overrides.orElse(Collections.emptyList());
 	}
 
 	@Override
 	protected void loadConfiguration(LoggingInitializationContext initializationContext, String location,
 			LogFile logFile) {
-		super.loadConfiguration(initializationContext, location, logFile);
-		loadConfiguration(location, logFile);
+		if (initializationContext != null) {
+			applySystemProperties(initializationContext.getEnvironment(), logFile);
+		}
+		loadConfiguration(location, logFile, getOverrides(initializationContext));
 	}
 
-	protected void loadConfiguration(String location, LogFile logFile) {
+	/**
+	 * Load the configuration from the given {@code location}, creating a composite using
+	 * the configuration from the given {@code overrides}.
+	 * @param location the location
+	 * @param logFile log file configuration
+	 * @param overrides the overriding locations
+	 * @since 2.6.0
+	 */
+	protected void loadConfiguration(String location, LogFile logFile, List<String> overrides) {
 		Assert.notNull(location, "Location must not be null");
 		try {
-			LoggerContext ctx = getLoggerContext();
-			URL url = ResourceUtils.getURL(location);
-			ConfigurationSource source = getConfigurationSource(url);
-			ctx.start(ConfigurationFactory.getInstance().getConfiguration(ctx, source));
+			List<Configuration> configurations = new ArrayList<>();
+			LoggerContext context = getLoggerContext();
+			configurations.add(load(location, context));
+			for (String override : overrides) {
+				configurations.add(load(override, context));
+			}
+			Configuration configuration = (configurations.size() > 1) ? createComposite(configurations)
+					: configurations.iterator().next();
+			context.start(configuration);
 		}
 		catch (Exception ex) {
 			throw new IllegalStateException("Could not initialize Log4J2 logging from " + location, ex);
 		}
+	}
+
+	private Configuration load(String location, LoggerContext context) throws IOException {
+		URL url = ResourceUtils.getURL(location);
+		ConfigurationSource source = getConfigurationSource(url);
+		return ConfigurationFactory.getInstance().getConfiguration(context, source);
 	}
 
 	private ConfigurationSource getConfigurationSource(URL url) throws IOException {
@@ -202,9 +298,38 @@ public class Log4J2LoggingSystem extends Slf4JLoggingSystem {
 		return new ConfigurationSource(stream, url);
 	}
 
+	private CompositeConfiguration createComposite(List<Configuration> configurations) {
+		return new CompositeConfiguration(
+				configurations.stream().map(AbstractConfiguration.class::cast).collect(Collectors.toList()));
+	}
+
 	@Override
 	protected void reinitialize(LoggingInitializationContext initializationContext) {
-		getLoggerContext().reconfigure();
+		List<String> overrides = getOverrides(initializationContext);
+		if (!CollectionUtils.isEmpty(overrides)) {
+			reinitializeWithOverrides(overrides);
+		}
+		else {
+			LoggerContext context = getLoggerContext();
+			context.reconfigure();
+		}
+	}
+
+	private void reinitializeWithOverrides(List<String> overrides) {
+		LoggerContext context = getLoggerContext();
+		Configuration base = context.getConfiguration();
+		List<AbstractConfiguration> configurations = new ArrayList<>();
+		configurations.add((AbstractConfiguration) base);
+		for (String override : overrides) {
+			try {
+				configurations.add((AbstractConfiguration) load(override, context));
+			}
+			catch (IOException ex) {
+				throw new RuntimeException("Failed to load overriding configuration from '" + override + "'", ex);
+			}
+		}
+		CompositeConfiguration composite = new CompositeConfiguration(configurations);
+		context.reconfigure(composite);
 	}
 
 	@Override
@@ -306,6 +431,9 @@ public class Log4J2LoggingSystem extends Slf4JLoggingSystem {
 
 	@Override
 	public void cleanUp() {
+		if (isLog4jBridgeHandlerAvailable()) {
+			removeLog4jBridgeHandler();
+		}
 		super.cleanUp();
 		LoggerContext loggerContext = getLoggerContext();
 		markAsUninitialized(loggerContext);
@@ -319,8 +447,8 @@ public class Log4J2LoggingSystem extends Slf4JLoggingSystem {
 
 	private LoggerConfig findLogger(String name) {
 		Configuration configuration = getLoggerContext().getConfiguration();
-		if (configuration instanceof AbstractConfiguration) {
-			return ((AbstractConfiguration) configuration).getLogger(name);
+		if (configuration instanceof AbstractConfiguration abstractConfiguration) {
+			return abstractConfiguration.getLogger(name);
 		}
 		return configuration.getLoggers().get(name);
 	}

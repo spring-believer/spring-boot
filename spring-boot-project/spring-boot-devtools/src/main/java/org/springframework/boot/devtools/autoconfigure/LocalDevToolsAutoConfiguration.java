@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2020 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,10 @@ import java.io.File;
 import java.net.URL;
 import java.util.List;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -54,7 +58,7 @@ import org.springframework.util.StringUtils;
  * @author Vladimir Tsanev
  * @since 1.3.0
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration
 @ConditionalOnInitializedRestarter
 @EnableConfigurationProperties(DevToolsProperties.class)
 public class LocalDevToolsAutoConfiguration {
@@ -94,6 +98,8 @@ public class LocalDevToolsAutoConfiguration {
 	@ConditionalOnProperty(prefix = "spring.devtools.restart", name = "enabled", matchIfMissing = true)
 	static class RestartConfiguration {
 
+		private static final Log restarterLogger = LogFactory.getLog(Restarter.class);
+
 		private final DevToolsProperties properties;
 
 		RestartConfiguration(DevToolsProperties properties) {
@@ -105,6 +111,10 @@ public class LocalDevToolsAutoConfiguration {
 				FileSystemWatcherFactory fileSystemWatcherFactory) {
 			return (event) -> {
 				if (event.isRestartRequired()) {
+					if (restarterLogger.isDebugEnabled()) {
+						restarterLogger.debug(
+								"Application restart required due to the following changes: " + event.getChangeSet());
+					}
 					Restarter.getInstance().restart(new FileWatchingFailureHandler(fileSystemWatcherFactory));
 				}
 			};
@@ -181,8 +191,8 @@ public class LocalDevToolsAutoConfiguration {
 
 		@Override
 		public void onApplicationEvent(ApplicationEvent event) {
-			if (event instanceof ContextRefreshedEvent || (event instanceof ClassPathChangedEvent
-					&& !((ClassPathChangedEvent) event).isRestartRequired())) {
+			if (event instanceof ContextRefreshedEvent || (event instanceof ClassPathChangedEvent classPathChangedEvent
+					&& !classPathChangedEvent.isRestartRequired())) {
 				this.liveReloadServer.triggerReload();
 			}
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException.Forbidden;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -50,8 +52,22 @@ final class StandardGitHubRepository implements GitHubRepository {
 			requestBody.put("labels", labels);
 		}
 		requestBody.put("body", body);
-		ResponseEntity<Map> response = this.rest.postForEntity("issues", requestBody, Map.class);
-		return (Integer) response.getBody().get("number");
+		try {
+			Thread.sleep(1000);
+		}
+		catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+		}
+		try {
+			ResponseEntity<Map> response = this.rest.postForEntity("issues", requestBody, Map.class);
+			return (Integer) response.getBody().get("number");
+		}
+		catch (RestClientException ex) {
+			if (ex instanceof Forbidden forbidden) {
+				System.out.println("Received 403 response with headers " + forbidden.getResponseHeaders());
+			}
+			throw ex;
+		}
 	}
 
 	@Override
